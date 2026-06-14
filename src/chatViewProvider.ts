@@ -101,24 +101,36 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             'default': { input: 2.00, output: 6.00 }
           };
 
-          const price = modelPrices[model ?? 'default'];
+          const price = modelPrices[model ?? 'default'] || modelPrices['default'];
           const usd = (inputTokens * price.input + outputTokens * price.output) / 1000000;
           const eur = usd * 0.92;
 
           return { usd, eur };
       }
 
-      private async getFileCount(dir: string): Promise<number> {
+      private async getFileCount(dir: string, visited = new Set<string>(), depth = 0): Promise<number> {
+          if (depth > 10 || visited.has(dir)) {
+              return 0;
+          }
+          visited.add(dir);
           let count = 0;
-          const files = await fs.promises.readdir(dir);
-          for (const file of files) {
-              const filePath = path.join(dir, file);
-              const stats = await fs.promises.stat(filePath);
-              if (stats.isDirectory()) {
-                  count += await this.getFileCount(filePath);
-              } else {
-                  count++;
+          try {
+              const files = await fs.promises.readdir(dir);
+              for (const file of files) {
+                  const filePath = path.join(dir, file);
+                  try {
+                      const stats = await fs.promises.stat(filePath);
+                      if (stats.isDirectory()) {
+                          count += await this.getFileCount(filePath, visited, depth + 1);
+                      } else {
+                          count++;
+                      }
+                  } catch (e) {
+                      // Ignore file stats error
+                  }
               }
+          } catch (e) {
+              // Ignore readdir error
           }
           return count;
       }
@@ -364,11 +376,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
 
      private async handleClearChatMessage(): Promise<void> {
-         const choice = await vscode.window.showWarningMessage(
-             '¿Estás seguro de que quieres limpiar el chat?',
-             { modal: true },
-             'Limpiar'
-         );
+          const choice = await vscode.window.showWarningMessage(
+              '¿Estás seguro de que quieres limpiar el chat? Esto iniciará una nueva sesión.',
+              { modal: true },
+              'Limpiar'
+          );
          if (choice === 'Limpiar') {
              try {
                  await this.service.newSession();
@@ -442,8 +454,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                  });
              }
 
-             await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
-             vscode.window.showInformationMessage(`Conversación exportada exitosamente.`);
+              try {
+                  await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
+                  vscode.window.showInformationMessage(`Conversación exportada exitosamente.`);
+              } catch (writeError) {
+                  vscode.window.showErrorMessage(`Error al guardar el archivo: ${getErrorMessage(writeError)}`);
+              }
           } catch (error) {
               const msg = getErrorMessage(error);
               vscode.window.showErrorMessage(`Error al exportar conversación: ${msg}`);
@@ -628,6 +644,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           const cwd = getWorkspaceDirectory();
           if (cwd) {
               execFile('git', ['diff'], { cwd }, (err, stdout, stderr) => {
+                  if (err) {
+                      vscode.window.showErrorMessage(`Error al ejecutar git diff: ${err.message || stderr}`);
+                      return;
+                  }
                   if (stdout) {
                       this.contextAttachments.addPart({
                           type: 'text',
@@ -667,19 +687,27 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 
                 try {
                     // Calcular tamaño total de la carpeta
-                    const calculateFolderSize = async (dir: string): Promise<number> => {
+                    const calculateFolderSize = async (dir: string, visited = new Set<string>(), depth = 0): Promise<number> => {
+                        if (depth > 10 || visited.has(dir)) {
+                            return 0;
+                        }
+                        visited.add(dir);
                         let size = 0;
                         const files = await fs.promises.readdir(dir);
                         for (const file of files) {
                             const filePath = path.join(dir, file);
-                            const fileStats = await fs.promises.stat(filePath);
-                            if (fileStats.isDirectory()) {
-                                size += await calculateFolderSize(filePath);
-                            } else {
-                                size += fileStats.size;
-                                if (size > maxSize) {
-                                    throw new Error('La carpeta es demasiado grande (máximo 100MB)');
+                            try {
+                                const fileStats = await fs.promises.stat(filePath);
+                                if (fileStats.isDirectory()) {
+                                    size += await calculateFolderSize(filePath, visited, depth + 1);
+                                } else {
+                                    size += fileStats.size;
+                                    if (size > maxSize) {
+                                        throw new Error('La carpeta es demasiado grande (máximo 100MB)');
+                                    }
                                 }
+                            } catch (e) {
+                                // Ignore file stats error
                             }
                         }
                         return size;

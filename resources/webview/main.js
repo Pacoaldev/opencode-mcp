@@ -55,7 +55,8 @@
   };
 
   function applyI18n() {
-    const lang = window.vscodeLang?.startsWith('en') ? 'en' : null;
+    const isSpanish = window.vscodeLang?.startsWith('es');
+    const lang = isSpanish ? null : 'en';
     if (!lang) return;
     
     const t = TRANSLATIONS[lang];
@@ -226,10 +227,11 @@
   }
 
   function renderBody(text) {
-    let html = text
+    let escaped = escHtml(text);
+    let html = escaped
       .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-        `<pre><code>${escHtml(code.trim())}</code></pre>`)
-      .replace(/`([^`]+)`/g, (_, code) => `<code>${escHtml(code)}</code>`);
+        `<pre><code>${code.trim()}</code></pre>`)
+      .replace(/`([^`]+)`/g, (_, code) => `<code>${code}</code>`);
 
     // Reemplazar indicadores de llamadas a herramientas con spinners y estilos Premium
     html = html.replace(/[>&gt;]\s*⚙️\s*Ejecutando:\s*<code>([^<]+)<\/code>\.\.\./g, (_, tool) => {
@@ -746,9 +748,11 @@ if (gitDiffBtn) {
 
   // Manejar pegar imágenes
   inputEl.addEventListener('paste', (e) => {
-    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    const clipboardData = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
+    if (!clipboardData || !clipboardData.items) return;
+    const items = clipboardData.items;
     for (const item of items) {
-      if (item.type.indexOf('image/') === 0) {
+      if (item.type && item.type.indexOf('image/') === 0) {
         const blob = item.getAsFile();
         const reader = new FileReader();
         reader.onload = (event) => {

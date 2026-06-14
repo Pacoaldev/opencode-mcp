@@ -2,11 +2,11 @@
   "name": "opencode-mcp-vscode",
   "displayName": "OpenCode Chat Panel",
   "description": "%extension.description%",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "publisher": "Pacoaldev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fralopala2/opencode-mcp.git"
+    "url": "https://github.com/Pacoaldev/opencode-mcp.git"
   },
   "engines": {
     "vscode": "^1.85.0"

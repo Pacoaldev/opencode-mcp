@@ -386,6 +386,7 @@ export class OpenCodeService implements vscode.Disposable {
             });
          } catch (error) {
              this.clearTimeout();
+             this.activeStream.delete(sessionId);
              const message = getErrorMessage(error);
              this.emitStream({
                  sessionId,
@@ -476,13 +477,12 @@ export class OpenCodeService implements vscode.Disposable {
             }
         }
     }
+
      private async handleEvent(event: ServerEvent): Promise<void> {
          const sessionId = this.sessionId;
          if (!sessionId || !this.client) {
              return;
          }
-
-         this.resetTimeout(sessionId);
 
           if (event.type === 'message.part.updated') {
               await this.handleMessagePartUpdatedEvent(event);
@@ -498,15 +498,13 @@ export class OpenCodeService implements vscode.Disposable {
              await this.handlePermissionUpdatedEvent(event);
              return;
          }
-}
+    }
 
      private async handleMessagePartUpdatedEvent(event: ServerEvent): Promise<void> {
          const sessionId = this.sessionId;
          if (!sessionId || !this.client) {
              return;
          }
-
-         this.resetTimeout(sessionId);
 
          const props = event.properties as {
              part?: { sessionID?: string; type?: string; text?: string; messageID?: string; tool?: string; state?: any };
@@ -515,6 +513,8 @@ export class OpenCodeService implements vscode.Disposable {
          if (props?.part?.sessionID !== sessionId || !props.part.messageID) {
              return;
          }
+
+         this.resetTimeout(sessionId);
 
          if (props.part.type === 'text' || props.part.type === 'reasoning') {
              const prev = this.activeStream.get(sessionId) ?? '';
@@ -552,12 +552,13 @@ export class OpenCodeService implements vscode.Disposable {
               return;
           }
 
-          this.resetTimeout(sessionId);
-
           const props = event.properties as { sessionID?: string; error?: any } | undefined;
           if (props?.sessionID !== sessionId) {
               return;
           }
+
+          this.resetTimeout(sessionId);
+
           if (!this.activeStream.has(sessionId)) {
               return;
           }
@@ -591,6 +592,7 @@ export class OpenCodeService implements vscode.Disposable {
        private async handlePermissionUpdatedEvent(event: ServerEvent): Promise<void> {
              const perm = event.properties as { id: string; sessionID: string; title: string } | undefined;
              if (perm && perm.sessionID === this.sessionId) {
+                 this.resetTimeout(this.sessionId);
                  const prev = this.activeStream.get(this.sessionId) ?? '';
                  const indicator = `\n> 🔐 Esperando permiso: \`${perm.title}\`...\n`;
                  if (!prev.includes(indicator)) {
@@ -626,9 +628,10 @@ export class OpenCodeService implements vscode.Disposable {
             // 1. Obtener la clave activa actual desde auth.json
             const authPath = getAuthPath();
             let activeKey: string | undefined;
-            if (fs.existsSync(authPath)) {
+            const authExists = await fs.promises.access(authPath).then(() => true).catch(() => false);
+            if (authExists) {
                 try {
-                    const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+                    const auth = JSON.parse(await fs.promises.readFile(authPath, 'utf8'));
                     activeKey = auth[providerName]?.key;
                 } catch (e) {
                     console.error('[Failover] Error leyendo auth.json', e);
@@ -727,18 +730,24 @@ export class OpenCodeService implements vscode.Disposable {
             }
 
             // 3. Escribir la nueva clave en auth.json
-            if (fs.existsSync(authPath)) {
-                try {
-                    const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-                    if (!auth[targetProvider]) {
-                        auth[targetProvider] = { type: 'api' };
+            try {
+                let auth: any = {};
+                if (authExists) {
+                    try {
+                        auth = JSON.parse(await fs.promises.readFile(authPath, 'utf8'));
+                    } catch (readErr) {
+                        console.error('[Failover] Error leyendo auth.json antes de escribir, inicializando vacío', readErr);
                     }
-                    auth[targetProvider].key = nextApiKey;
-                    fs.writeFileSync(authPath, JSON.stringify(auth, null, 2), 'utf8');
-                } catch (e) {
-                    console.error('[Failover] Error escribiendo en auth.json', e);
-                    return false;
                 }
+                if (!auth[targetProvider]) {
+                    auth[targetProvider] = { type: 'api' };
+                }
+                auth[targetProvider].key = nextApiKey;
+                await fs.promises.mkdir(path.dirname(authPath), { recursive: true });
+                await fs.promises.writeFile(authPath, JSON.stringify(auth, null, 2), 'utf8');
+            } catch (e) {
+                console.error('[Failover] Error escribiendo en auth.json', e);
+                return false;
             }
 
             // 4. Mostrar mensaje de transición al usuario en el chat

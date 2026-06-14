@@ -138,5 +138,14 @@ function waitForServerUrl(proc: ChildProcess, timeoutMs: number): Promise<string
 function stopProcess(proc: ChildProcess): void {
     if (!proc.killed) {
         proc.kill();
+        setTimeout(() => {
+            if (!proc.killed) {
+                try {
+                    proc.kill('SIGKILL');
+                } catch (e) {
+                    // Ignore if process already dead
+                }
+            }
+        }, 5000).unref();
     }
 }
