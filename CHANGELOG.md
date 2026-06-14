@@ -6,6 +6,26 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.15] - 2026-06-14
+
+### Corrección de Bugs y Estabilidad
+- **chatViewProvider.ts**:
+  - Corregido error de variable indefinida (`undefined`) en el cálculo de costos (`calculateCost`).
+  - Añadido límite de profundidad (10 niveles) y detección de referencias circulares a `getFileCount` y `calculateFolderSize` para evitar desbordamiento de pila.
+  - Mejorada la gestión de errores en `execFile` de `git diff` para mostrar errores reales al usuario.
+  - Asegurada la exportación del chat capturando errores específicos de escritura en disco.
+  - Clarificado el mensaje de confirmación al limpiar el chat indicando que crea una nueva sesión.
+- **opencodeService.ts**:
+  - Evitada la inconsistencia en el estado eliminando el `sessionId` del mapa `activeStream` en el bloque `catch` de `sendPrompt`.
+  - Corregido el failover para que se ejecute de forma asíncrona y cree el archivo `auth.json` si no existe.
+  - Evitado el reinicio erróneo de timeouts debido a eventos SSE recibidos de sesiones distintas a la activa.
+- **main.js**:
+  - Añadida robustez en el evento de pegado de imágenes validando `clipboardData`.
+  - Solucionada vulnerabilidad XSS en `renderBody` escapando el texto de manera uniforme al inicio.
+  - Ajustado el fallback de i18n para aplicar traducciones en inglés para todos los idiomas no soportados (distintos a español).
+- **serverProcess.ts**:
+  - Añadida llamada a `SIGKILL` en `stopProcess` tras un timeout de 5 segundos si el proceso hijo no responde a `SIGTERM`.
+
 ## [1.0.13] - 2026-06-10
 
 ### Nuevas Funcionalidades
