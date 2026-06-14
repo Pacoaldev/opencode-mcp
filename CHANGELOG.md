@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
-## [1.0.15] - 2026-06-14
+## [1.0.16] - 2026-06-14
 
 ### Corrección de Bugs y Estabilidad
 - **chatViewProvider.ts**:
