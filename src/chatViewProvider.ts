@@ -180,24 +180,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
                  let costData: Record<string, any> = JSON.parse(JSON.stringify(this.context.globalState.get('costData') || {}));
 
-                 this.post({
-                     type: 'init',
-                     agents: primary.map((a) => ({
-                         name: a.name,
-                         description: a.description ?? '',
-                     })),
-                     models,
-                     selectedAgent: this.selectedAgent,
-                     selectedModel: this.service.getSelectedModel(),
-                     context: this.contextAttachments
-                         .getItems()
-                         .map((p) => contextLabel(p)),
-                     sessionId,
-                     messages: parsedMessages,
-                     quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
-                     costData,
-                     gitInfo
-                 });
+                  this.post({
+                      type: 'init',
+                      agents: primary.map((a) => ({
+                          name: a.name,
+                          description: a.description ?? '',
+                      })),
+                      models,
+                      selectedAgent: this.selectedAgent,
+                      selectedModel: this.service.getSelectedModel(),
+                      context: this.contextAttachments
+                          .getItems()
+                          .map((p) => contextLabel(p)),
+                      sessionId,
+                      messages: parsedMessages,
+                      quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
+                      costData,
+                      templates: this.context.workspaceState.get<Template[]>('templates') || [],
+                      gitInfo
+                  });
           } catch (error) {
               const msg = getErrorMessage(error);
               this.post({ type: 'error', message: msg });

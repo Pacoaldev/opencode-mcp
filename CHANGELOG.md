@@ -6,6 +6,17 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.17] - 2026-06-15
+
+### Nuevas Funcionalidades
+- **Plantillas de prompts inteligentes**: 
+  - Añadido comando `opencode.addTemplate` para guardar prompts frecuentes como plantillas con nombre y contenido.
+  - Añadido comando `opencode.selectTemplate` para insertar una plantilla guardada mediante selector rápido o mediante escribir `/` en el área de entrada y elegir de un dropdown.
+  - Las plantillas se persisten en el workspace y se sincronizan con la webview.
+- **Estimación de tokens y costo antes de enviar**:
+  - Mientras el usuario escribe en el área de chat, se muestra en tiempo real la estimación aproximada de tokens de entrada y el costo asociado basado en el modelo seleccionado.
+  - Utiliza la misma lógica de cálculo de costos que el seguimiento posterior para coherencia.
+
 ## [1.0.16] - 2026-06-14
 
 ### Corrección de Bugs y Estabilidad

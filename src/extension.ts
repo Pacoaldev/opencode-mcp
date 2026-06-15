@@ -2,6 +2,11 @@ import * as vscode from 'vscode';
 import { ChatViewProvider } from './chatViewProvider';
 import { OpenCodeService } from './opencodeService';
 
+interface Template {
+    name: string;
+    content: string;
+}
+
 let chatProvider: ChatViewProvider | undefined;
 let service: OpenCodeService | undefined;
 
@@ -89,6 +94,42 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.commands.registerCommand('opencode.clearApiKeys', async () => {
             await context.secrets.delete('opencode.apis');
             vscode.window.showInformationMessage('API Keys borradas del almacenamiento seguro.');
+        }),
+        vscode.commands.registerCommand('opencode.addTemplate', async () => {
+            const name = await vscode.window.showInputBox({ prompt: 'Nombre de la plantilla' });
+            if (!name) return;
+            const content = await vscode.window.showInputBox({ prompt: 'Contenido de la plantilla', ignoreFocusOut: true });
+            if (content === undefined) return;
+            const templates = context.workspaceState.get<Template[]>('templates') || [];
+            const index = templates.findIndex(t => t.name === name);
+            const template: Template = { name, content };
+            if (index >= 0) {
+                templates[index] = template;
+            } else {
+                templates.push(template);
+            }
+            await context.workspaceState.update('templates', templates);
+            vscode.window.showInformationMessage(`Plantilla '${name}' guardada.`);
+            if (chatProvider?.view) {
+                chatProvider.view.webview.postMessage({ type: 'templatesUpdate', templates });
+            }
+        }),
+        vscode.commands.registerCommand('opencode.selectTemplate', async () => {
+            const templates = context.workspaceState.get<Template[]>('templates') || [];
+            if (templates.length === 0) {
+                vscode.window.showInformationMessage('No hay plantillas guardadas.');
+                return;
+            }
+            const items = templates.map(t => ({
+                label: t.name,
+                description: t.content.length > 50 ? t.content.substring(0, 50) + '...' : t.content,
+                template: t
+            }));
+            const selected = await vscode.window.showQuickPick(items, { placeHolder: 'Selecciona una plantilla para insertar' });
+            if (!selected) return;
+            if (chatProvider?.view) {
+                chatProvider.view.webview.postMessage({ type: 'insertText', text: selected.template.content });
+            }
         })
     );
 

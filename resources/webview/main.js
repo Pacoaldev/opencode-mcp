@@ -25,16 +25,19 @@
    const gitContextBtn = document.getElementById('gitContextBtn');
    const contextAddBtn = document.getElementById('contextAddBtn');
 
-   let streamingNode = null;
-   let streamingBodyNode = null;
-   let streamingMetaNode = null;
-   let selectedModel = '';
-   let selectedAgent = '';
-   let selectedMode = 'auto'; // agent / auto
-   let attachments = [];
-   let costData = {};
-   let generationInterval = null;
-   let generationStartTime = null;
+    let streamingNode = null;
+    let streamingBodyNode = null;
+    let streamingMetaNode = null;
+    let selectedModel = '';
+    let selectedAgent = '';
+    let selectedMode = 'auto'; // agent / auto
+    let attachments = [];
+    let costData = {};
+    let generationInterval = null;
+    let generationStartTime = null;
+    let templateDropdown = document.getElementById('templateDropdown');
+    let templates = [];
+    let selectedTemplateName = '';
 
 
 
@@ -418,7 +421,19 @@
     }
   });
 
-  // Initial mode set; actual handler updated via setStatus
+     /* mostrar plantillas con \"/\" */
+   inputEl.addEventListener('keydown', e => {
+     if (e.key === '/' && !e.shiftKey) {
+       e.preventDefault();
+       closeAllDropdowns();
+       if (templateDropdown) {
+         templateDropdown.classList.add('open');
+         dropOverlay.classList.add('open');
+       }
+     }
+   });
+	
+   // Initial mode set; actual handler updated via setStatus
 
   function renderAttachments() {
     const existingAtts = contextBar.querySelectorAll('.ctx-att');
@@ -454,13 +469,45 @@
       } else {
           contextBar.appendChild(tag);
       }
-    });
-  }
+   });
+   }
 
-  window.editMsg = function(btn) {
-    const msgEl = btn.closest('.msg');
-    const rawText = msgEl.dataset.rawText || '';
-    inputEl.value = rawText;
+function renderTemplateDropdown() {
+    const list = templateDropdown.querySelector('.dropdown-models-list');
+    if (!list) {
+        // Create models list if not exists
+        const modelsList = document.createElement('div');
+        modelsList.className = 'dropdown-models-list';
+        const section = templateDropdown.querySelector('.dropdown-section');
+        if (section) {
+            section.appendChild(modelsList);
+        } else {
+            // fallback: create section
+            const section = document.createElement('div');
+            section.className = 'dropdown-section';
+            section.innerHTML = '<div class="dropdown-label">Plantillas</div>';
+            templateDropdown.appendChild(section);
+            section.appendChild(modelsList);
+        }
+    } else {
+        list.innerHTML = '';
+    }
+    templates.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        item.dataset.template = t.name;
+        item.innerHTML = `
+            <div class="dropdown-check">${selectedTemplateName === t.name ? '✓' : ''}</div>
+            <div style="flex:1;">${t.name}</div>
+        `;
+        list.appendChild(item);
+    });
+}
+
+   window.editMsg = function(btn) {
+     const msgEl = btn.closest('.msg');
+     const rawText = msgEl.dataset.rawText || '';
+     inputEl.value = rawText;
     inputEl.focus();
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
@@ -655,12 +702,13 @@ if (gitDiffBtn) {
   const modeBtn = document.getElementById('modeBtn');
   const modeDropdown = document.getElementById('modeDropdown');
 
-  function closeAllDropdowns() {
-    dropdown.classList.remove('open');
-    if(agentDropdown) agentDropdown.classList.remove('open');
-    if(modeDropdown) modeDropdown.classList.remove('open');
-    dropOverlay.classList.remove('open');
-  }
+   function closeAllDropdowns() {
+     dropdown.classList.remove('open');
+     if(agentDropdown) agentDropdown.classList.remove('open');
+     if(modeDropdown) modeDropdown.classList.remove('open');
+     if(templateDropdown) templateDropdown.classList.remove('open');
+     dropOverlay.classList.remove('open');
+   }
 
   modelBtn.addEventListener('click', e => {
     e.stopPropagation();
@@ -742,9 +790,10 @@ if (gitDiffBtn) {
     }
   }
 
-  dropdown.addEventListener('click', handleDropdownClick);
-  if (agentDropdown) agentDropdown.addEventListener('click', handleDropdownClick);
-  if (modeDropdown) modeDropdown.addEventListener('click', handleDropdownClick);
+   dropdown.addEventListener('click', handleDropdownClick);
+   if (agentDropdown) agentDropdown.addEventListener('click', handleDropdownClick);
+   if (modeDropdown) modeDropdown.addEventListener('click', handleDropdownClick);
+   if (templateDropdown) templateDropdown.addEventListener('click', handleDropdownClick);
 
   // Manejar pegar imágenes
   inputEl.addEventListener('paste', (e) => {
@@ -786,8 +835,10 @@ if (gitDiffBtn) {
     const msg = event.data;
     switch (msg.type) {
        case 'init':
-         costData = msg.costData || {};
-         updateCostPanel();
+          costData = msg.costData || {};
+          updateCostPanel();
+          templates = msg.templates || [];
+          renderTemplateDropdown();
         // Clear existing messages
         const msgs = messagesEl.querySelectorAll('.msg');
         msgs.forEach(m => m.remove());
