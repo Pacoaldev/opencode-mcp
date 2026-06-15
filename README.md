@@ -28,6 +28,12 @@ Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conec
 - **Seguridad reforzada**: CSP restrictiva en el webview, sanitización de salida HTML, comandos sin shell (`execFile`), y rutas de auth configurables vía `OPENCODE_AUTH_PATH`.
 - **Robustez y estabilidad**: Timeout de 3 minutos con cancelación automática, reconexión automática (hasta 3 intentos con backoff exponencial), failover de API keys con rotación entre proveedores, parsing SSE tolerante a CRLF/LF, y detección de caídas de conexión SSE para no dejar el chat colgado.
 - **Mejoras de Interfaz**: Botones de contexto dedicados, dropdowns independientes para Modelo, Agente y Modo (filtrando agentes internos), selecciones robustas por ID, panel de costos con cierre explícito, acceso directo a configuración de la extensión y feedback visual inmediato.
+- **Plantillas de prompts inteligentes**: guarda e inserta prompts frecuentes como plantillas con nombre y contenido, accesibles mediante comando o escribir `/` en el chat.
+- **Estimación de tokens y costo antes de enviar**: mientras el usuario escribe, se muestra en tiempo real la aproximación de tokens de entrada y costo basado en el modelo seleccionado.
+- **Corrección de cálculo de costos y prevención de desbordamiento de pila**: límites de profundidad y detección de referencias circulares en cálculos de tamaño de carpeta y conteo de archivos.
+- **Mejores gestiones de errores en comandos git y failover**: muestra errores reales al usuario y maneja de forma asíncrona el failover, creando archivos de auth si faltan.
+- **Seguridad XSS mejorada y validación de pegado de imágenes**: escapado uniforme de texto y validación de datos del portapapeles al pegar imágenes.
+- **Uso de SIGKILL para terminar procesos colgados**: forzado de terminación tras timeout si el proceso hijo no responde a SIGTERM.
 
 ## Requisitos
 
