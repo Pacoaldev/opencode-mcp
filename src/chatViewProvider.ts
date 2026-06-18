@@ -7,7 +7,7 @@ import { ContextAttachments } from './contextAttachments';
 import { contextLabel, partsToDisplayText } from './parts';
 import { OpenCodeService } from './opencodeService';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
-import { PromptPart } from './types';
+import { PromptPart, Template } from './types';
 import { gitProvider } from './gitProvider';
 
 /**
@@ -24,7 +24,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;    // 10MB
 export class ChatViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'opencode.mcp';
 
-    private view: vscode.WebviewView | undefined;
+    public view: vscode.WebviewView | undefined;
     private readonly contextAttachments = new ContextAttachments();
     private selectedAgent = '';
 
@@ -761,7 +761,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                       if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
                           mime = `image/${ext.replace('.', '').replace('jpg', 'jpeg')}`;
                           // Save image to temp file and return file:// URL so the server can read it
-                          const tempUrl = saveImageBuffer(buffer, path.basename(uri.fsPath), mime);
+                          const tempUrl = saveImageBuffer(Buffer.from(buffer), path.basename(uri.fsPath), mime);
                           this.post({
                               type: 'fileAttached',
                               attachment: {

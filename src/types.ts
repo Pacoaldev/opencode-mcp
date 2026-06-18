@@ -10,6 +10,11 @@ export interface Session {
     title?: string;
 }
 
+export interface Template {
+    name: string;
+    content: string;
+}
+
 export interface MessageInfo {
     role: string;
     id: string;

@@ -2,11 +2,7 @@ import * as vscode from 'vscode';
 import { ChatViewProvider } from './chatViewProvider';
 import { OpenCodeService } from './opencodeService';
 import { cleanupOldImages } from './imageHelper';
-
-interface Template {
-    name: string;
-    content: string;
-}
+import { Template } from './types';
 
 let chatProvider: ChatViewProvider | undefined;
 let service: OpenCodeService | undefined;

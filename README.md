@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/fralopala2/opencode-mcp/main/resources/logo.png" alt="OpenCode Panel Logo" width="300" />
+  <img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/logo.png" alt="OpenCode Panel Logo" width="300" />
 </div>
 
 # OpenCode Panel (VS Code / Antigravity)
@@ -9,7 +9,7 @@ Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conec
 
 | Interfaz principal | Panel de costos | Ajustes y modelos |
 | :---: | :---: | :---: |
-| [<img src="./resources/1.png" alt="Interfaz principal" width="100%" />](./resources/1.png) | [<img src="./resources/2.png" alt="Panel de costos" width="100%" />](./resources/2.png) | [<img src="./resources/3.png" alt="Ajustes y modelos" width="100%" />](./resources/3.png) |
+| [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/1.png" alt="Interfaz principal" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/1.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/2.png" alt="Panel de costos" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/2.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/3.png" alt="Ajustes y modelos" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/3.png) |
 
 
 ## Características
