@@ -7,9 +7,9 @@
 Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conectado directamente a tu instancia local de **OpenCode**. Permite interactuar con tus **agents**, **skills**, **MCP** y **providers** configurados en `~/.config/opencode/opencode.jsonc` e incorpora características avanzadas como **historial de chat persistente**, **gestión de errores**, **adaptador MCP**, **agente de failover** y **panel de costos acumulativos** en tiempo real.
 
 
-| Interfaz Principal | Panel de Costos | Ajustes y Modelos |
-|:---:|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/fralopala2/opencode-mcp/main/resources/1.png" alt="Panel 1" width="100%" /> | <img src="https://raw.githubusercontent.com/fralopala2/opencode-mcp/main/resources/2.png" alt="Panel 2" width="100%" /> | <img src="https://raw.githubusercontent.com/fralopala2/opencode-mcp/main/resources/3.png" alt="Panel 3" width="100%" /> |
+| Interfaz principal | Panel de costos | Ajustes y modelos |
+| :---: | :---: | :---: |
+| [<img src="./resources/1.png" alt="Interfaz principal" width="100%" />](./resources/1.png) | [<img src="./resources/2.png" alt="Panel de costos" width="100%" />](./resources/2.png) | [<img src="./resources/3.png" alt="Ajustes y modelos" width="100%" />](./resources/3.png) |
 
 
 ## Características

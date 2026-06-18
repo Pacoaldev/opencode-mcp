@@ -805,13 +805,18 @@ if (gitDiffBtn) {
         const blob = item.getAsFile();
         const reader = new FileReader();
         reader.onload = (event) => {
-          attachments.push({
+          // Instead of adding directly, send to provider to save as temp file
+          const attachment = {
             type: 'file',
             mime: item.type,
             filename: `image-${Date.now()}.png`,
             url: event.target.result
+          };
+          // Send to provider to process and save as local temp file
+          vscode.postMessage({
+            type: 'processImageAttachment',
+            attachment: attachment
           });
-          renderAttachments();
         };
         reader.readAsDataURL(blob);
       }

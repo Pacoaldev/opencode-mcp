@@ -1,3 +1,4 @@
+import { saveImageBuffer, saveBase64Image } from './imageHelper';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -295,9 +296,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                case 'attachFolder':
                    await this.handleAttachFolderMessage();
                    break;
-               case 'attachFile':
-                  await this.handleAttachFileMessage();
+              case 'processImageAttachment': {
+                  await this.handleProcessImageAttachmentMessage(message);
                   break;
+              }
              case 'loadCostData': {
                  await this.handleLoadCostDataMessage();
                  break;
@@ -753,22 +755,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
              
              for (const uri of fileUris) {
                  try {
-                     const buffer = await vscode.workspace.fs.readFile(uri);
-                     let mime = 'application/octet-stream';
-                     const ext = path.extname(uri.fsPath).toLowerCase();
-                     if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
-                         mime = `image/${ext.replace('.', '').replace('jpg', 'jpeg')}`;
-                         const b64 = Buffer.from(buffer).toString('base64');
-                         this.post({
-                             type: 'fileAttached',
-                             attachment: {
-                                 type: 'file',
-                                 mime,
-                                 filename: path.basename(uri.fsPath),
-                                 url: `data:${mime};base64,${b64}`,
-                             },
-                         });
-                      } else {
+                        const buffer = await vscode.workspace.fs.readFile(uri);
+                      let mime = 'application/octet-stream';
+                      const ext = path.extname(uri.fsPath).toLowerCase();
+                      if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
+                          mime = `image/${ext.replace('.', '').replace('jpg', 'jpeg')}`;
+                          // Save image to temp file and return file:// URL so the server can read it
+                          const tempUrl = saveImageBuffer(buffer, path.basename(uri.fsPath), mime);
+                          this.post({
+                              type: 'fileAttached',
+                              attachment: {
+                                  type: 'file',
+                                  mime,
+                                  filename: path.basename(uri.fsPath),
+                                  url: tempUrl,
+                              },
+                          });
+                       } else {
                           // Validar tamaño del archivo para archivos de texto
                           const maxSize = MAX_FILE_SIZE;
                           if (buffer.length > maxSize) {
@@ -799,16 +802,38 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                  }
              }
              
-             if (successCount > 0) {
-                 this.post({
-                     type: 'system',
-                     text: `Adjuntados ${successCount} archivo(s)${errorCount > 0 ? `, ${errorCount} error(es)` : ''}.`
-                 });
-             }
-          }
-      }
+if (successCount > 0) {
+                  this.post({
+                      type: 'system',
+                      text: `Adjuntados ${successCount} archivo(s)${errorCount > 0 ? `, ${errorCount} error(es)` : ''}.`
+                  });
+              }
+           }
+       }
 
-       private async handleLoadCostDataMessage(): Promise<void> {
+       private async handleProcessImageAttachmentMessage(message: any): Promise<void> {
+           const attachment = message.attachment;
+           if (!attachment || !attachment.url) {
+               return;
+           }
+           try {
+               const fileUrl = saveBase64Image(attachment.url, attachment.filename);
+               this.post({
+                   type: 'fileAttached',
+                   attachment: {
+                       type: 'file',
+                       mime: attachment.mime,
+                       filename: attachment.filename,
+                       url: fileUrl,
+                   },
+               });
+           } catch (e) {
+               const msg = getErrorMessage(e);
+               this.post({ type: 'error', message: `Error al procesar imagen: ${msg}` });
+           }
+       }
+
+        private async handleLoadCostDataMessage(): Promise<void> {
            let costData: Record<string, any> = JSON.parse(JSON.stringify(this.context.globalState.get('costData') || {}));
            this.post({ type: 'costDataUpdate', costData });
        }

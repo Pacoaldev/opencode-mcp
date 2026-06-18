@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ChatViewProvider } from './chatViewProvider';
 import { OpenCodeService } from './opencodeService';
+import { cleanupOldImages } from './imageHelper';
 
 interface Template {
     name: string;
@@ -23,7 +24,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
-    await service.initialize(context);
+     await service.initialize(context);
+     
+     // Clean up old temporary images on activation
+     cleanupOldImages();
+     
+     // Set up periodic cleanup every hour
+     const cleanupInterval = setInterval(() => {
+         cleanupOldImages();
+     }, 60 * 60 * 1000); // 1 hour
+     
+     context.subscriptions.push(new vscode.Disposable(() => {
+         clearInterval(cleanupInterval);
+     }));
 
     context.subscriptions.push(
         vscode.commands.registerCommand('opencode.ask', () => {

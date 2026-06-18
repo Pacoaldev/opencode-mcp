@@ -6,6 +6,17 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.19] - 2026-06-18
+
+### Corrección de Bugs en Manejo de Imágenes
+- **chatViewProvider.ts, imageHelper.ts, main.js, extension.ts**:
+  - Solucionado problema donde las imágenes adjuntadas (tanto desde portapapeles como desde el explorador de archivos) no podían ser leídas por la IA
+  - Las imágenes ahora se guardan temporalmente como archivos locales y se envían como rutas `file://` en lugar de data URIs (`data:image/png;base64,...`)
+  - El servidor OpenCode ahora puede acceder correctamente a las imágenes ya que tanto la extensión como el servidor corren en la misma máquina
+  - Implementado limpieza automática de imágenes temporales antigüas (más de 24 horas) para evitar acumulación de archivos
+  - Se mantiene compatibilidad con archivos no-imágenes que continúan usando rutas `file://` directas
+  - Se añadió manejo robusto de errores al procesar imágenes para mostrar mensajes claros al usuario en caso de fallo
+
 ## [1.0.17] - 2026-06-15
 
 ### Nuevas Funcionalidades
