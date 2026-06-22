@@ -293,6 +293,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                  await this.handleGitDiffMessage();
                  break;
              }
+               case 'attachFile':
+                   await this.handleAttachFileMessage();
+                   break;
                case 'attachFolder':
                    await this.handleAttachFolderMessage();
                    break;
