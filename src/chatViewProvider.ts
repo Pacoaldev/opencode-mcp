@@ -765,13 +765,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                           mime = `image/${ext.replace('.', '').replace('jpg', 'jpeg')}`;
                           // Save image to temp file and return file:// URL so the server can read it
                           const tempUrl = saveImageBuffer(Buffer.from(buffer), path.basename(uri.fsPath), mime);
+                          // Convert to text part with file reference since server doesn't support file parts
                           this.post({
                               type: 'fileAttached',
                               attachment: {
-                                  type: 'file',
-                                  mime,
-                                  filename: path.basename(uri.fsPath),
-                                  url: tempUrl,
+                                  type: 'text',
+                                  text: `file://${tempUrl}`
                               },
                           });
                        } else {
@@ -786,16 +785,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                              continue;
                          }
                          
-                         // Enviar la ruta del archivo para archivos locales no-imágenes
-                         this.post({
-                             type: 'fileAttached',
-                             attachment: {
-                                 type: 'file',
-                                 mime: 'text/plain',
-                                 filename: path.basename(uri.fsPath),
-                                 url: `file://${uri.fsPath}`,
-                             },
-                         });
+                          // Enviar la ruta del archivo para archivos locales no-imágenes
+                          this.post({
+                              type: 'fileAttached',
+                              attachment: {
+                                  type: 'text',
+                                  text: `file://${uri.fsPath}`,
+                              },
+                          });
                      }
                      successCount++;
                  } catch (e) {
@@ -819,17 +816,15 @@ if (successCount > 0) {
            if (!attachment || !attachment.url) {
                return;
            }
-           try {
-               const fileUrl = saveBase64Image(attachment.url, attachment.filename);
-               this.post({
-                   type: 'fileAttached',
-                   attachment: {
-                       type: 'file',
-                       mime: attachment.mime,
-                       filename: attachment.filename,
-                       url: fileUrl,
-                   },
-               });
+            try {
+                const fileUrl = saveBase64Image(attachment.url, attachment.filename);
+                this.post({
+                    type: 'fileAttached',
+                    attachment: {
+                        type: 'text',
+                        text: `file://${fileUrl}`,
+                    },
+                });
            } catch (e) {
                const msg = getErrorMessage(e);
                this.post({ type: 'error', message: `Error al procesar imagen: ${msg}` });

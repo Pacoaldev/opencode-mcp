@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
-## [1.0.19] - 2026-06-18
+## [1.0.20] - 2026-06-22
 
 ### Corrección de Bugs en Manejo de Imágenes
 - **chatViewProvider.ts, imageHelper.ts, main.js, extension.ts**:
@@ -16,6 +16,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - Implementado limpieza automática de imágenes temporales antigüas (más de 24 horas) para evitar acumulación de archivos
   - Se mantiene compatibilidad con archivos no-imágenes que continúan usando rutas `file://` directas
   - Se añadió manejo robusto de errores al procesar imágenes para mostrar mensajes claros al usuario en caso de fallo
+
+### Corrección de Bugs en Adjuntar Archivo
+- **main.js, chatViewProvider.ts**:
+  - Corregido el botón de adjuntar archivo que no funcionaba en la webview. El mensaje `attachFile` caía en el `default` del `switch` y nunca llegaba a llamar `handleAttachFileMessage()`.
+  - Añadida la entrada `case 'attachFile':` en el `switch` del listener de mensajes de la webview, conectando correctamente el botón con el handler existente.
+  - El botón de adjuntar carpeta (`attachFolder`) sí funcionaba; ahora el de archivo también.
 
 ## [1.0.17] - 2026-06-15
 
