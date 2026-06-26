@@ -201,7 +201,7 @@
 
          const modelCost = document.createElement('span');
          modelCost.className = 'cost-amount';
-         modelCost.textContent = `$${models[model].usd.toFixed(6)} | €${models[model].eur.toFixed(6)}`;
+          modelCost.textContent = `${models[model].usd.toFixed(2)} | €${models[model].eur.toFixed(2)}`;
 
          modelEntry.appendChild(modelName);
          modelEntry.appendChild(modelCost);
