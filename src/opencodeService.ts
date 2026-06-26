@@ -516,14 +516,18 @@ export class OpenCodeService implements vscode.Disposable {
 
          this.resetTimeout(sessionId);
 
-         if (props.part.type === 'text' || props.part.type === 'reasoning') {
-             const prev = this.activeStream.get(sessionId) ?? '';
-             const next =
-                 props.delta !== undefined
-                     ? prev + props.delta
-                     : (props.part.text ?? prev);
-             this.activeStream.set(sessionId, next);
-             this.emitStream({ sessionId, text: next, done: false, statusDetail: 'Generando respuesta...' });
+        if (props.part.type === 'text' || props.part.type === 'reasoning') {
+            const prev = this.activeStream.get(sessionId) ?? '';
+            let next =
+                props.delta !== undefined
+                    ? prev + props.delta
+                    : (props.part.text ?? prev);
+            const prompt = this.lastPromptInfo?.text;
+            if (prompt && next.startsWith(prompt)) {
+                next = next.substring(prompt.length).trimStart();
+            }
+            this.activeStream.set(sessionId, next);
+            this.emitStream({ sessionId, text: next, done: false, statusDetail: 'Generando respuesta...' });
          } else if (props.part.type === 'call') {
              const toolName = props.part.tool || 'herramienta';
              const prev = this.activeStream.get(sessionId) ?? '';
