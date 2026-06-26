@@ -168,7 +168,7 @@
         }
         const latest = months[0];
         const data = monthMap[latest];
-        totalDiv.innerHTML = `Total: ${latest}<br>${data.usd.toFixed(6)}$ || ${data.eur.toFixed(6)}€`;
+        totalDiv.innerHTML = `Total: ${latest}<br>${data.usd.toFixed(2)}$ || ${data.eur.toFixed(2)}€`;
     }
 
    function updateCostPanel() {
