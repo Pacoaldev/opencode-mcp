@@ -12,6 +12,8 @@ export interface OpenCodeSettings {
     defaultAgent: string;
     autoApprovePermissions: boolean;
     opencodeBin: string;
+    localModeEnabled: boolean;
+    localModeUrl: string;
 }
 
 export function getOpenCodeSettings(): OpenCodeSettings {
@@ -26,6 +28,8 @@ export function getOpenCodeSettings(): OpenCodeSettings {
         defaultAgent: config.get<string>('defaultAgent', ''),
         autoApprovePermissions: config.get<boolean>('autoApprovePermissions', false),
         opencodeBin: config.get<string>('bin', ''),
+        localModeEnabled: config.get<boolean>('localModeEnabled', false),
+        localModeUrl: config.get<string>('localModeUrl', 'http://127.0.0.1:1234'),
     };
 }
 

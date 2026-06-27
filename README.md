@@ -30,6 +30,7 @@ Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conec
 - **Mejoras de Interfaz**: Botones de contexto dedicados, dropdowns independientes para Modelo, Agente y Modo (filtrando agentes internos), selecciones robustas por ID, panel de costos con cierre explícito, acceso directo a configuración de la extensión y feedback visual inmediato.
 - **Plantillas de prompts inteligentes**: guarda e inserta prompts frecuentes como plantillas con nombre y contenido, accesibles mediante comando o escribir `/` en el chat.
 - **Estimación de tokens y costo antes de enviar**: mientras el usuario escribe, se muestra en tiempo real la aproximación de tokens de entrada y costo basado en el modelo seleccionado.
+- **Modo local con LM Studio**: nuevo checkbox `opencode.localModeEnabled` permite enviar todas las peticiones a LM Studio (ej. `http://127.0.0.1:1234`). Si la instancia no está disponible, la extensión avisa y vuelve a OpenCode.
 - **Corrección de cálculo de costos y prevención de desbordamiento de pila**: límites de profundidad y detección de referencias circulares en cálculos de tamaño de carpeta y conteo de archivos.
 - **Mejores gestiones de errores en comandos git y failover**: muestra errores reales al usuario y maneja de forma asíncrona el failover, creando archivos de auth si faltan.
 - **Seguridad XSS mejorada y validación de pegado de imágenes**: escapado uniforme de texto y validación de datos del portapapeles al pegar imágenes.
@@ -135,6 +136,15 @@ El panel de costos muestra el gasto acumulado de tus interacciones con los LLMs,
 
 ## Configuración
 
+### Activar modo local con LM Studio
+
+1. Abre **File → Preferences → Settings** (o presiona `Ctrl+,`).
+2. En la barra de búsqueda escribe `opencode` para filtrar las opciones de la extensión.
+3. Activa el toggle **OpenCode: Local Mode Enabled** para enviar todas las peticiones a LM Studio.
+4. (Opcional) Configura **OpenCode: Local Mode Url** con la URL de tu instancia de LM Studio (por defecto `http://127.0.0.1:1234`).
+
+> Cuando el modo local está activado, la extensión enviará los prompts a LM Studio; si la instancia no responde, mostrará una advertencia en el chat y volverá a usar OpenCode como fallback.
+
 La extensión ofrece las siguientes opciones de configuración:
 
 | Configuración | Valor por defecto | Descripción |
@@ -147,6 +157,8 @@ La extensión ofrece las siguientes opciones de configuración:
 | `opencode.defaultAgent` | `""` | Nombre del agente por defecto (según tu configuración de OpenCode). |
 | `opencode.autoApprovePermissions` | `false` | Aprobar automáticamente permisos para comandos bash o edición de archivos. |
 | `opencode.bin` | `""` | Ruta al ejecutable de OpenCode (vacío = auto-detección en Windows/npm). |
+| `opencode.localModeEnabled` | `false` | Activar modo local para enviar todas las peticiones a LM Studio. |
+| `opencode.localModeUrl` | `http://127.0.0.1:1234` | URL base de la instancia de LM Studio. |
 | `opencode.quickActions` | `[...]` | Acciones rápidas personalizadas en la pantalla de bienvenida. |
 
 ## Conexión con OpenCode LOCAL

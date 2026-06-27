@@ -6,6 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.22] - 2026-06-27
+
+### Nuevas Funcionalidades
+- **Modo Local con LM Studio**: Nuevo checkbox `opencode.localModeEnabled` permite dirigir todas las peticiones a una instancia local de LM Studio. Se verifica la disponibilidad antes de enviar y, si no está activo, la extensión muestra un aviso y vuelve a OpenCode.
+- **Configuración de URL LM Studio**: Nueva opción `opencode.localModeUrl` para definir la URL base de LM Studio.
+- **Validación en tiempo de ejecución**: La extensión comprueba la accesibilidad de LM Studio y notifica al usuario en caso de error.
+- **Actualizaciones de documentación**: README y configuración actualizadas con los nuevos ajustes.
+
 ## [1.0.20] - 2026-06-22
 
 ### Corrección de Bugs en Manejo de Imágenes

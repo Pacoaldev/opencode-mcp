@@ -2,7 +2,7 @@
   "name": "opencode-mcp-vscode",
   "displayName": "OpenCode Chat Panel",
   "description": "%extension.description%",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "publisher": "Pacoaldev",
   "repository": {
     "type": "git",
@@ -105,6 +105,16 @@
           "type": "string",
           "default": "",
           "description": "%config.bin.desc%"
+        },
+        "opencode.localModeEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.localModeEnabled.desc%"
+        },
+        "opencode.localModeUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:1234",
+          "description": "%config.localModeUrl.desc%"
         },
         "opencode.quickActions": {
           "type": "array",

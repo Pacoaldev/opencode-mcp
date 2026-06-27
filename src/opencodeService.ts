@@ -351,8 +351,27 @@ export class OpenCodeService implements vscode.Disposable {
             this.lastPromptInfo = { text, agent, model, contextParts, attachments };
         }
 
-        const sessionId = await this.ensureSession();
         const settings = getOpenCodeSettings();
+
+        // ponytail: modo local — todo va directo a LM Studio sin tocar OpenCode
+        if (settings.localModeEnabled) {
+            // Verify LM Studio is reachable before sending
+            const lmOk = await this.checkLMStudio();
+            if (!lmOk) {
+                // Notify user and fallback to OpenCode
+                this.emitStream({
+                    sessionId: this.sessionId ?? 'fallback',
+                    text: '\n> ⚠️ LM Studio no está disponible en la URL configurada. Por favor, inícialo o desactiva el modo local.\n',
+                    done: false,
+                    statusDetail: 'LM Studio no disponible'
+                });
+                // Continue with OpenCode as fallback
+            } else {
+                return this.sendPromptLocal(text);
+            }
+        }
+
+        const sessionId = await this.ensureSession();
         const selectedAgent = agent || settings.defaultAgent || undefined;
 
         const parts: PromptPart[] = [...contextParts, ...attachments, { type: 'text', text }];
@@ -394,6 +413,98 @@ export class OpenCodeService implements vscode.Disposable {
                  done: true,
                  error: message,
              });
+            throw error;
+        }
+    }
+
+    private async checkLMStudio(): Promise<boolean> {
+        const settings = getOpenCodeSettings();
+        const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/models';
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000);
+            const response = await fetch(url, { method: 'GET', signal: controller.signal });
+            clearTimeout(timeout);
+            return response.ok;
+        } catch {
+            return false;
+        }
+    }
+
+    private async sendPromptLocal(text: string): Promise<void> {
+        const settings = getOpenCodeSettings();
+        const sessionId = this.sessionId ?? 'local-backup';
+        this.activeStream.set(sessionId, '');
+
+        this.emitStream({
+            sessionId,
+            text: '',
+            done: false,
+            statusDetail: 'Enviando a LM Studio...',
+        });
+
+        const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/chat/completions';
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: text }],
+                    stream: true,
+                }),
+            });
+
+            if (!response.ok || !response.body) {
+                throw new Error(`LM Studio ${response.status}: ${await response.text().catch(() => 'error')}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+
+                    try {
+                        const chunk = JSON.parse(data);
+                        const content = chunk.choices?.[0]?.delta?.content;
+                        if (content) {
+                            const prev = this.activeStream.get(sessionId) ?? '';
+                            const next = prev + content;
+                            this.activeStream.set(sessionId, next);
+                            this.emitStream({ sessionId, text: next, done: false, statusDetail: 'Generando...' });
+                        }
+                    } catch {
+                        // ponytail: ignorar líneas mal formadas, LM Studio a veces manda basura
+                    }
+                }
+            }
+
+            this.emitStream({
+                sessionId,
+                text: this.activeStream.get(sessionId) ?? '',
+                done: true,
+                statusDetail: 'Listo.',
+            });
+        } catch (error) {
+            this.emitStream({
+                sessionId,
+                text: '',
+                done: true,
+                error: getErrorMessage(error),
+                statusDetail: 'Error en LM Studio.',
+            });
             throw error;
         }
     }
@@ -709,9 +820,10 @@ export class OpenCodeService implements vscode.Disposable {
                     }
                 }
 
-                if (!found || !nextApiKey) {
-                    return false; // No hay ningún proveedor con claves
-                }
+                        if (!found || !nextApiKey) {
+                            // No hay más proveedores disponibles
+                            return false; // No hay ningún proveedor con claves ni backup local
+                        }
 
                 // Intentar obtener un modelo válido para el nuevo proveedor
                 try {

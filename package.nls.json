@@ -19,5 +19,7 @@
   "config.bin.desc": "Path to opencode executable (empty = auto in Windows/npm). Equivalents to OPENCODE_BIN.",
   "config.quickActions.desc": "Custom quick actions in the welcome screen.",
   "view.title": "Chat",
-  "view.container.title": "OpenCode"
+  "view.container.title": "OpenCode",
+  "config.localModeEnabled.desc": "Usa LM Studio en modo local en lugar de OpenCode (requiere que LM Studio esté corriendo).",
+  "config.localModeUrl.desc": "URL base de la instancia de LM Studio (por ejemplo, http://127.0.0.1:1234)."
 }
