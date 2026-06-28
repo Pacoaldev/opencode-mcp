@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.23] - 2026-06-28
+
+### Corrección de Bugs y Mejoras
+- **Soporte Multimodal en Modo Local (LM Studio)**:
+  - Se ha implementado el soporte completo para enviar contexto visual e imágenes a instancias locales de LM Studio a través del modo local.
+  - La extensión ahora formatea correctamente el payload al formato multimodal de OpenAI, codificando las imágenes locales en Base64 cuando se detectan archivos adjuntos, permitiendo a los modelos de visión en LM Studio analizar el contenido visual.
+
 ## [1.0.22] - 2026-06-27
 
 ### Nuevas Funcionalidades

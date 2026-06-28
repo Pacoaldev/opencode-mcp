@@ -367,7 +367,7 @@ export class OpenCodeService implements vscode.Disposable {
                 });
                 // Continue with OpenCode as fallback
             } else {
-                return this.sendPromptLocal(text);
+                return this.sendPromptLocal(text, contextParts, attachments);
             }
         }
 
@@ -431,7 +431,7 @@ export class OpenCodeService implements vscode.Disposable {
         }
     }
 
-    private async sendPromptLocal(text: string): Promise<void> {
+    private async sendPromptLocal(text: string, contextParts: PromptPart[], attachments: PromptPart[]): Promise<void> {
         const settings = getOpenCodeSettings();
         const sessionId = this.sessionId ?? 'local-backup';
         this.activeStream.set(sessionId, '');
@@ -446,11 +446,59 @@ export class OpenCodeService implements vscode.Disposable {
         const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/chat/completions';
 
         try {
+            let contentPayload: any = text;
+            const hasImages = attachments.some(a => a.type === 'file' && a.mime.startsWith('image/'));
+            
+            if (hasImages) {
+                contentPayload = [];
+                contentPayload.push({ type: 'text', text: text });
+                
+                for (const att of attachments) {
+                    if (att.type === 'file' && att.mime.startsWith('image/')) {
+                        let base64Data = '';
+                        if (att.url.startsWith('file://')) {
+                            try {
+                                const filePath = vscode.Uri.parse(att.url).fsPath;
+                                const fileBuffer = await fs.promises.readFile(filePath);
+                                base64Data = `data:${att.mime};base64,${fileBuffer.toString('base64')}`;
+                            } catch (e) {
+                                console.error('Failed to read image file:', e);
+                                continue;
+                            }
+                        } else if (att.url.startsWith('data:')) {
+                            base64Data = att.url;
+                        }
+
+                        if (base64Data) {
+                            contentPayload.push({
+                                type: 'image_url',
+                                image_url: { url: base64Data }
+                            });
+                        }
+                    }
+                }
+            }
+
+            let finalContext = '';
+            for (const part of contextParts) {
+                if (part.type === 'text') {
+                    finalContext += part.text + '\n\n';
+                }
+            }
+            
+            if (finalContext) {
+                if (Array.isArray(contentPayload)) {
+                    contentPayload[0].text = finalContext + contentPayload[0].text;
+                } else {
+                    contentPayload = finalContext + contentPayload;
+                }
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: [{ role: 'user', content: text }],
+                    messages: [{ role: 'user', content: contentPayload }],
                     stream: true,
                 }),
             });
