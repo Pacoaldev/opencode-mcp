@@ -507,7 +507,7 @@
 
       tag.innerHTML = `
         ${iconOrThumb}
-        <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 4px;">${att.filename || 'Adjunto'}</span>
+        <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 4px;">${escHtml(att.filename || (att.text && att.text.startsWith('Archivo: ') ? att.text.split('\n')[0].slice(9) : 'Adjunto'))}</span>
         <span class="ctx-tag-close">
           <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
         </span>

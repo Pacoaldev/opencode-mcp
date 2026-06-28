@@ -1,4 +1,5 @@
 import { saveImageBuffer, saveBase64Image } from './imageHelper';
+import { readFileAsPart, readFolderAsParts } from './fileContext';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -750,10 +751,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 
                 // Limitar el tamaño de la carpeta (evitar carpetas demasiado grandes)
                 const maxSize = MAX_FOLDER_SIZE;
-                let folderSize = 0;
                 
                 try {
-                    // Calcular tamaño total de la carpeta
                     const calculateFolderSize = async (dir: string, visited = new Set<string>(), depth = 0): Promise<number> => {
                         if (depth > 10 || visited.has(dir)) {
                             return 0;
@@ -780,20 +779,31 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                         return size;
                     };
                     
-                    folderSize = await calculateFolderSize(folderPath);
+                    await calculateFolderSize(folderPath);
                 } catch (sizeError) {
                     this.post({ type: 'error', message: getErrorMessage(sizeError) });
                     return;
                 }
-                
-                this.contextAttachments.addPart({
-                    type: 'text',
-                    text: `Carpeta adjunta: ${folderPath}\nTamaño total: ${(folderSize / 1024 / 1024).toFixed(2)} MB\nContiene: ${await this.getFileCount(folderPath)} archivos`,
-                });
+
+                const { parts, added, skipped } = await readFolderAsParts(folderPath);
+                if (added === 0) {
+                    this.post({
+                        type: 'error',
+                        message:
+                            'No se encontraron archivos de texto legibles en la carpeta (máx. 1MB y 50 archivos).',
+                    });
+                    return;
+                }
+                for (const part of parts) {
+                    this.contextAttachments.addPart(part);
+                }
                 this.notifyContextChanged();
                 this.post({
                     type: 'system',
-                    text: `Carpeta adjunta al contexto: ${folderPath}`,
+                    text:
+                        `Carpeta adjunta: ${folderPath} — ${added} archivo(s) incluido(s)` +
+                        (skipped > 0 ? `, ${skipped} omitido(s)` : '') +
+                        '.',
                 });
                 
              } catch (error) {
@@ -809,7 +819,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
              openLabel: 'Adjuntar',
              filters: {
                  'Archivos de imagen': ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
-                 'Archivos de texto': ['txt', 'log', 'conf', 'ini', 'cfg', 'md'],
+                 'Archivos de código': ['ts', 'js', 'tsx', 'jsx', 'py', 'rs', 'go', 'java', 'cpp', 'c', 'h', 'cs', 'php', 'rb', 'swift', 'kt', 'scala', 'm', 'sh', 'sql', 'md', 'json', 'xml', 'yaml', 'yml', 'toml'],
+                 'Archivos de texto': ['txt', 'log', 'conf', 'ini', 'cfg'],
                  'Todos los archivos': ['*']
              }
          });
@@ -845,13 +856,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                              errorCount++;
                              continue;
                          }
-                         
-                          // Enviar la ruta del archivo para archivos locales no-imágenes
+
+                          const part = await readFileAsPart(uri.fsPath);
                           this.post({
                               type: 'fileAttached',
                               attachment: {
-                                  type: 'text',
-                                  text: `file://${uri.fsPath}`,
+                                  ...part,
+                                  filename: path.basename(uri.fsPath),
                               },
                           });
                      }

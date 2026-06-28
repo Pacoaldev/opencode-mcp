@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import { getAuthPath } from './settings';
 import { HttpOpenCodeClient } from './httpClient';
 import { coerceImageParts, inlineImageDataUrls, readImageAsDataUrl } from './imageHelper';
+import { resolveLocalFileReferences } from './fileContext';
 import { partsToDisplayText, type PromptPart } from './parts';
 import { startOpencodeServer, type ManagedServer } from './serverProcess';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
@@ -394,8 +395,10 @@ export class OpenCodeService implements vscode.Disposable {
         isFailover: boolean = false
     ): Promise<void> {
         const settings = getOpenCodeSettings();
-        const normalizedContext = coerceImageParts(contextParts);
-        const normalizedAttachments = coerceImageParts(attachments);
+        const resolvedContext = await resolveLocalFileReferences(contextParts);
+        const resolvedAttachments = await resolveLocalFileReferences(attachments);
+        const normalizedContext = coerceImageParts(resolvedContext);
+        const normalizedAttachments = coerceImageParts(resolvedAttachments);
 
         if (!isFailover) {
             this.lastPromptInfo = { text, agent, model, contextParts, attachments };
