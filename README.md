@@ -30,7 +30,8 @@ Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conec
 - **Mejoras de Interfaz**: Botones de contexto dedicados, dropdowns independientes para Modelo, Agente y Modo (filtrando agentes internos), selecciones robustas por ID, panel de costos con cierre explícito, acceso directo a configuración de la extensión y feedback visual inmediato.
 - **Plantillas de prompts inteligentes**: guarda e inserta prompts frecuentes como plantillas con nombre y contenido, accesibles mediante comando o escribir `/` en el chat.
 - **Estimación de tokens y costo antes de enviar**: mientras el usuario escribe, se muestra en tiempo real la aproximación de tokens de entrada y costo basado en el modelo seleccionado.
-- **Modo local con LM Studio**: nuevo checkbox `opencode.localModeEnabled` permite enviar todas las peticiones a LM Studio (ej. `http://127.0.0.1:1234`), incluyendo soporte completo para el paso de contexto visual e imágenes codificadas en Base64 para modelos multimodales. Si la instancia no está disponible, la extensión avisa y vuelve a OpenCode.
+- **Modo local con LM Studio**: con `opencode.localModeEnabled` activo, todas las peticiones van directo a LM Studio (sin pasar por OpenCode). La barra del chat muestra **`LM Studio · modelo`** con indicador verde cuando está conectado. El desplegable lista los modelos cargados en LM Studio. Si LM Studio no responde, la extensión **bloquea el envío** con un error claro (sin fallback silencioso a la nube). Al detectar LM Studio con el modo local desactivado, ofrece activarlo automáticamente.
+- **Imágenes en el chat (Ctrl+V y adjuntos)**: las capturas pegadas o adjuntadas se codifican en Base64 y se envían en formato multimodal OpenAI (`image_url`) a LM Studio u OpenCode. Requiere un **modelo con visión** cargado en LM Studio (p. ej. LLaVA, Qwen2-VL); modelos solo texto como Gemma no analizan imágenes.
 - **Corrección de cálculo de costos y prevención de desbordamiento de pila**: límites de profundidad y detección de referencias circulares en cálculos de tamaño de carpeta y conteo de archivos.
 - **Mejores gestiones de errores en comandos git y failover**: muestra errores reales al usuario y maneja de forma asíncrona el failover, creando archivos de auth si faltan.
 - **Seguridad XSS mejorada y validación de pegado de imágenes**: escapado uniforme de texto y validación de datos del portapapeles al pegar imágenes.
@@ -53,6 +54,21 @@ Puedes instalar la extensión directamente desde el **Marketplace de VS Code**:
 3. Haz clic en **Instalar**.
 
 *(Alternativamente, puedes instalarla desde tu navegador a través del [Marketplace de VS Code](https://marketplace.visualstudio.com/items?itemName=Pacoaldev.opencode-mcp-vscode)).*
+
+#### Instalación desde VSIX (desarrollo o versión manual)
+
+Si compilas la extensión localmente o recibes un `.vsix`:
+
+1. Compila y empaqueta:
+   ```bash
+   npm run compile
+   npx @vscode/vsce package
+   ```
+2. En VS Code / Cursor: `Ctrl+Shift+P` → **Extensions: Install from VSIX...**
+3. Selecciona el archivo `opencode-mcp-vscode-x.x.x.vsix`.
+4. **Reload Window** cuando lo solicite.
+
+> **Nota:** Recargar la ventana (*Reload Window*) no aplica cambios de código por sí solo; necesitas instalar el VSIX (o ejecutar con **F5** en modo desarrollo) para usar una versión nueva.
 
 ### Uso
 
@@ -138,12 +154,24 @@ El panel de costos muestra el gasto acumulado de tus interacciones con los LLMs,
 
 ### Activar modo local con LM Studio
 
-1. Abre **File → Preferences → Settings** (o presiona `Ctrl+,`).
-2. En la barra de búsqueda escribe `opencode` para filtrar las opciones de la extensión.
-3. Activa el toggle **OpenCode: Local Mode Enabled** para enviar todas las peticiones a LM Studio.
-4. (Opcional) Configura **OpenCode: Local Mode Url** con la URL de tu instancia de LM Studio (por defecto `http://127.0.0.1:1234`).
+1. Inicia el **servidor local** en LM Studio (Developer → Local Server) y anota la URL (p. ej. `http://127.0.0.1:5555`).
+2. Abre **File → Preferences → Settings** (o `Ctrl+,`).
+3. Busca `opencode` y activa **OpenCode: Local Mode Enabled**.
+4. Configura **OpenCode: Local Mode Url** con la URL de tu instancia (por defecto `http://127.0.0.1:5555`).
 
-> Cuando el modo local está activado, la extensión enviará los prompts a LM Studio; si la instancia no responde, mostrará una advertencia en el chat y volverá a usar OpenCode como fallback.
+> **Importante:** la configuración del modo local aplica al **workspace o perfil de usuario** donde la actives. Si trabajas en varios proyectos, activa `opencode.localModeEnabled` en la pestaña **User** para que funcione en todos, o repítela en cada workspace.
+
+Comportamiento con el modo local activo:
+
+| Aspecto | Comportamiento |
+|---------|----------------|
+| Barra del chat | Muestra `LM Studio · nombre-del-modelo` con punto verde si está conectado |
+| Modelos en el desplegable | Solo modelos expuestos por LM Studio (`/v1/models`) |
+| LM Studio apagado | Error claro al enviar; **no** se redirige silenciosamente a OpenCode |
+| LM Studio detectado sin modo local | Aviso con botón **Activar modo local** |
+| Imágenes (Ctrl+V) | Base64 multimodal; requiere modelo **con visión** en LM Studio |
+
+> Los modelos solo texto (p. ej. `google/gemma-4-e4b`) no pueden analizar capturas de pantalla aunque LM Studio esté activo. Carga un modelo multimodal (LLaVA, Qwen2-VL, Gemma 3 vision, etc.) para ese caso.
 
 La extensión ofrece las siguientes opciones de configuración:
 
@@ -158,7 +186,7 @@ La extensión ofrece las siguientes opciones de configuración:
 | `opencode.autoApprovePermissions` | `false` | Aprobar automáticamente permisos para comandos bash o edición de archivos. |
 | `opencode.bin` | `""` | Ruta al ejecutable de OpenCode (vacío = auto-detección en Windows/npm). |
 | `opencode.localModeEnabled` | `false` | Activar modo local para enviar todas las peticiones a LM Studio. |
-| `opencode.localModeUrl` | `http://127.0.0.1:1234` | URL base de la instancia de LM Studio. |
+| `opencode.localModeUrl` | `http://127.0.0.1:5555` | URL base de la instancia de LM Studio. |
 | `opencode.quickActions` | `[...]` | Acciones rápidas personalizadas en la pantalla de bienvenida. |
 
 ## Conexión con OpenCode LOCAL
@@ -240,6 +268,11 @@ Para contribuir al desarrollo de la extensión:
 - **Error de conexión (Timeout):** Asegúrate de que el puerto de `opencode.serverPort` esté libre.
 - **Error de autenticación:** Ingresa la contraseña en `opencode.serverPassword` si tu servidor la requiere.
 - **Bloqueo por permisos:** Activa `opencode.autoApprovePermissions` o aprueba manualmente si el chat se cuelga.
+- **Sigo viendo modelos cloud (p. ej. kimi) en lugar de LM Studio:** Activa `opencode.localModeEnabled` en Settings (pestaña User si usas varios proyectos), instala la versión actual del VSIX y recarga la ventana. Debe aparecer `LM Studio · ...` en la barra del chat.
+- **LM Studio activo pero el chat responde como modelo en la nube:** El modo local no está activo en ese workspace o la extensión instalada es una versión anterior sin estos fixes.
+- **Modo local activo pero error al enviar:** Comprueba que el servidor local de LM Studio esté arrancado y que `opencode.localModeUrl` coincida con la URL mostrada en LM Studio (p. ej. `:5555`).
+- **La IA no ve imágenes pegadas:** Confirma que el adjunto muestra miniatura en la barra de contexto y que tienes un **modelo con visión** cargado en LM Studio; modelos solo texto ignoran imágenes.
+- **Reload Window no aplica cambios:** Reinstala el `.vsix` compilado o usa **F5** (Run Extension) en el proyecto de la extensión.
 
 ## Licencia
 

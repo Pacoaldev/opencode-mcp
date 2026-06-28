@@ -27,6 +27,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     public view: vscode.WebviewView | undefined;
     private readonly contextAttachments = new ContextAttachments();
     private selectedAgent = '';
+    private lmStudioPromptShown = false;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -167,6 +168,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                             `Modo LM Studio activo pero no hay respuesta en ${settings.localModeUrl}. ` +
                             'Inicia el servidor local en LM Studio.',
                     });
+                } else if (models.length > 0) {
+                    const current = this.service.getSelectedModel();
+                    const valid = current && models.some((m) => m.id === current);
+                    if (!valid) {
+                        this.service.persistSelectedModel(models[0].id);
+                    }
                 }
             } else {
                 agents = await this.service.listAgents();
@@ -345,6 +352,39 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
      }
 
      private async handleReadyMessage(): Promise<void> {
+         await this.refreshState();
+         await this.maybePromptLocalMode();
+     }
+
+     private async maybePromptLocalMode(): Promise<void> {
+         if (this.lmStudioPromptShown) {
+             return;
+         }
+         const settings = getOpenCodeSettings();
+         if (settings.localModeEnabled) {
+             return;
+         }
+         const available = await this.service.isLMStudioAvailable();
+         if (!available) {
+             return;
+         }
+         this.lmStudioPromptShown = true;
+         const choice = await vscode.window.showInformationMessage(
+             'LM Studio detectado, pero el modo local está desactivado. Ahora mismo el chat usa OpenCode en la nube.',
+             'Activar modo local',
+             'Ahora no'
+         );
+         if (choice !== 'Activar modo local') {
+             return;
+         }
+         const target = vscode.workspace.workspaceFolders?.length
+             ? vscode.ConfigurationTarget.Workspace
+             : vscode.ConfigurationTarget.Global;
+         const config = vscode.workspace.getConfiguration('opencode');
+         await config.update('localModeEnabled', true, target);
+         if (!config.get<string>('localModeUrl')) {
+             await config.update('localModeUrl', 'http://127.0.0.1:5555', target);
+         }
          await this.refreshState();
      }
 

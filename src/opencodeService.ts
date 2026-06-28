@@ -519,7 +519,8 @@ export class OpenCodeService implements vscode.Disposable {
                 throw new Error('No se pudo leer la imagen adjunta. Vuelve a pegarla o adjúntala de nuevo.');
             }
 
-            const lmModel = this.resolveLMStudioModel(model);
+            const lmModel =
+                model?.startsWith('lmstudio::') ? this.resolveLMStudioModel(model) : undefined;
             const requestBody: Record<string, unknown> = {
                 messages: [{ role: 'user', content: contentPayload }],
                 stream: true,

@@ -6,6 +6,34 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.26] - 2026-06-28
+
+### Documentación
+- **README.md**: guía ampliada de modo local LM Studio, instalación desde VSIX, imágenes/visión y solución de problemas.
+- **CHANGELOG.md**: historial de fixes v1.0.25 documentado.
+
+## [1.0.25] - 2026-06-28
+
+### Corrección de Bugs — Modo local LM Studio
+- **opencodeService.ts, chatViewProvider.ts, main.js**:
+  - Eliminado el **fallback silencioso a OpenCode** cuando el modo local está activo pero LM Studio no responde; ahora se muestra un error claro en lugar de enviar la petición a la nube.
+  - Con `opencode.localModeEnabled` activo, el desplegable de modelos lista los modelos de **LM Studio** (`/v1/models`) en lugar de los proveedores cloud de OpenCode.
+  - Indicador visual en la barra superior: **`LM Studio · nombre-del-modelo`** cuando el modo local está conectado.
+  - Selección automática del primer modelo de LM Studio si el modelo persistido pertenece a OpenCode (p. ej. `moonshotai/kimi-k2.6`).
+  - Solo se envía el parámetro `model` a LM Studio si el ID tiene prefijo `lmstudio::`; en caso contrario se usa el modelo cargado en LM Studio.
+  - Detección al abrir el chat: si LM Studio está activo pero el modo local está desactivado, se ofrece activarlo con un clic.
+
+### Corrección de Bugs — Imágenes y visión
+- **chatViewProvider.ts, imageHelper.ts, opencodeService.ts, main.js**:
+  - Corregido el envío de imágenes pegadas (Ctrl+V) o adjuntadas: ahora se envían como partes `file` con `mime` y `url` correctos, no como texto con rutas `file://file://...`.
+  - Normalización de rutas legacy (`file://file://...`) y conversión a **Base64** en el payload multimodal (`image_url`) para LM Studio y OpenCode.
+  - Las rutas `file://` ya no se inyectan como texto en el prompt; el modelo recibe los píxeles, no la ruta del disco.
+  - Miniatura de previsualización en la barra de adjuntos al pegar imágenes (`previewUrl`).
+  - Error explícito si la imagen adjunta no puede leerse desde disco.
+
+### Documentación
+- README actualizado con instrucciones de instalación desde VSIX, configuración del modo local en cualquier workspace y requisitos de modelos con visión.
+
 ## [1.0.23] - 2026-06-28
 
 ### Corrección de Bugs y Mejoras
