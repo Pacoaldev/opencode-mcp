@@ -1,5 +1,5 @@
 import { saveImageBuffer, saveBase64Image } from './imageHelper';
-import { readFileAsPart, readFolderAsParts } from './fileContext';
+import { readFolderAsParts } from './fileContext';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -846,25 +846,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                               },
                           });
                        } else {
-                          // Validar tamaño del archivo para archivos de texto
-                          const maxSize = MAX_FILE_SIZE;
-                          if (buffer.length > maxSize) {
-                             this.post({ 
-                                 type: 'error', 
-                                 message: `El archivo ${path.basename(uri.fsPath)} es demasiado grande (máximo 10MB)` 
-                             });
-                             errorCount++;
-                             continue;
-                         }
-
-                          const part = await readFileAsPart(uri.fsPath);
-                          this.post({
-                              type: 'fileAttached',
-                              attachment: {
-                                  ...part,
-                                  filename: path.basename(uri.fsPath),
-                              },
-                          });
+                          await this.contextAttachments.addFileUri(uri);
+                          this.notifyContextChanged();
                      }
                      successCount++;
                  } catch (e) {

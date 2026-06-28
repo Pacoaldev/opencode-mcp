@@ -34,6 +34,32 @@ function isBareFileUrl(text: string): boolean {
     return /^file:\/\//i.test(trimmed) && !isImageFileUrl(trimmed);
 }
 
+const FILE_URL_IN_TEXT_RE = /file:\/\/[^\s<>"']+/gi;
+
+/** Replace any file:// reference embedded in a string with inlined file content. */
+export async function inlineFileUrlsInText(text: string): Promise<string> {
+    const matches = [...text.matchAll(FILE_URL_IN_TEXT_RE)];
+    if (matches.length === 0) {
+        return text;
+    }
+    let result = text;
+    for (const match of matches) {
+        const url = match[0];
+        if (isImageFileUrl(url)) {
+            continue;
+        }
+        try {
+            const part = await readFileAsPart(fileUrlToPath(url));
+            if (part.type === 'text') {
+                result = result.replace(url, part.text);
+            }
+        } catch {
+            result = result.replace(url, `[No se pudo leer el archivo: ${url}]`);
+        }
+    }
+    return result;
+}
+
 /** Read a local text file into a prompt part (content inlined, not a path). */
 export async function readFileAsPart(filePath: string): Promise<PromptPart> {
     const stat = await fs.promises.stat(filePath);
@@ -48,15 +74,30 @@ export async function readFileAsPart(filePath: string): Promise<PromptPart> {
 export async function resolveLocalFileReferences(parts: PromptPart[]): Promise<PromptPart[]> {
     const out: PromptPart[] = [];
     for (const part of parts) {
-        if (part.type === 'text' && isBareFileUrl(part.text)) {
+        if (part.type === 'file' && !part.mime.startsWith('image/')) {
             try {
-                out.push(await readFileAsPart(fileUrlToPath(part.text)));
+                out.push(await readFileAsPart(fileUrlToPath(part.url)));
             } catch {
                 out.push({
                     type: 'text',
-                    text: `No se pudo leer el archivo adjunto: ${part.text.trim()}`,
+                    text: `No se pudo leer el archivo adjunto: ${part.filename ?? part.url}`,
                 });
             }
+            continue;
+        }
+        if (part.type === 'text') {
+            if (isBareFileUrl(part.text)) {
+                try {
+                    out.push(await readFileAsPart(fileUrlToPath(part.text)));
+                } catch {
+                    out.push({
+                        type: 'text',
+                        text: `No se pudo leer el archivo adjunto: ${part.text.trim()}`,
+                    });
+                }
+                continue;
+            }
+            out.push({ type: 'text', text: await inlineFileUrlsInText(part.text) });
             continue;
         }
         out.push(part);

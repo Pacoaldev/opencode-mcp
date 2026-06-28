@@ -7,7 +7,7 @@ import { promisify } from 'util';
 import { getAuthPath } from './settings';
 import { HttpOpenCodeClient } from './httpClient';
 import { coerceImageParts, inlineImageDataUrls, readImageAsDataUrl } from './imageHelper';
-import { resolveLocalFileReferences } from './fileContext';
+import { resolveLocalFileReferences, inlineFileUrlsInText } from './fileContext';
 import { partsToDisplayText, type PromptPart } from './parts';
 import { startOpencodeServer, type ManagedServer } from './serverProcess';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
@@ -395,6 +395,7 @@ export class OpenCodeService implements vscode.Disposable {
         isFailover: boolean = false
     ): Promise<void> {
         const settings = getOpenCodeSettings();
+        const resolvedText = await inlineFileUrlsInText(text);
         const resolvedContext = await resolveLocalFileReferences(contextParts);
         const resolvedAttachments = await resolveLocalFileReferences(attachments);
         const normalizedContext = coerceImageParts(resolvedContext);
@@ -413,7 +414,7 @@ export class OpenCodeService implements vscode.Disposable {
                         'Inicia el servidor en LM Studio o desactiva opencode.localModeEnabled.'
                 );
             }
-            return this.sendPromptLocal(text, normalizedContext, normalizedAttachments, model);
+            return this.sendPromptLocal(resolvedText, normalizedContext, normalizedAttachments, model);
         }
 
         if (!this.client) {
@@ -428,7 +429,7 @@ export class OpenCodeService implements vscode.Disposable {
 
         const inlinedContext = await inlineImageDataUrls(normalizedContext);
         const inlinedAttachments = await inlineImageDataUrls(normalizedAttachments);
-        const parts: PromptPart[] = [...inlinedContext, ...inlinedAttachments, { type: 'text', text }];
+        const parts: PromptPart[] = [...inlinedContext, ...inlinedAttachments, { type: 'text', text: resolvedText }];
 
         this.activeStream.set(sessionId, '');
 
