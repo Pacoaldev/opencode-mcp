@@ -447,13 +447,14 @@ export class OpenCodeService implements vscode.Disposable {
 
         try {
             let contentPayload: any = text;
-            const hasImages = attachments.some(a => a.type === 'file' && a.mime.startsWith('image/'));
+            const allParts = [...contextParts, ...attachments];
+            const hasImages = allParts.some(a => a.type === 'file' && a.mime.startsWith('image/'));
             
             if (hasImages) {
                 contentPayload = [];
                 contentPayload.push({ type: 'text', text: text });
                 
-                for (const att of attachments) {
+                for (const att of allParts) {
                     if (att.type === 'file' && att.mime.startsWith('image/')) {
                         let base64Data = '';
                         if (att.url.startsWith('file://')) {
@@ -480,7 +481,7 @@ export class OpenCodeService implements vscode.Disposable {
             }
 
             let finalContext = '';
-            for (const part of contextParts) {
+            for (const part of allParts) {
                 if (part.type === 'text') {
                     finalContext += part.text + '\n\n';
                 }
