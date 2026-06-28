@@ -134,6 +134,39 @@
      --radius-lg:    10px;
    }
 
+   /* ponytail: tema naranja tipo Claude cuando el backend es LM Studio */
+   body.theme-lmstudio {
+     --bg-msg-user:  #2a1f18;
+     --bg-msg-ai:    #1a1714;
+     --border-sel:   #b85c3a;
+     --accent:       #d97757;
+     --accent-dim:   #9e4a2e;
+     --tag-bg:       #2e221a;
+     --tag-fg:       #e8956a;
+   }
+
+   body.theme-lmstudio .msg-avatar.user {
+     background: #3f2a22;
+     color: var(--tag-fg);
+   }
+
+   body.theme-lmstudio #agentBtn {
+     border-color: rgba(217, 119, 87, 0.35);
+   }
+
+   body.theme-lmstudio .tool-status.success {
+     border-color: var(--accent-dim);
+     color: var(--accent);
+   }
+
+   body.theme-lmstudio .tool-icon-check {
+     color: var(--accent);
+   }
+
+   body.theme-lmstudio .tool-spinner {
+     border-color: rgba(217, 119, 87, 0.2);
+   }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {

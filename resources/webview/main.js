@@ -31,6 +31,24 @@
     let selectedModel = '';
     let selectedAgent = '';
     let localModeEnabled = false;
+    const BRANDING = {
+      opencode: {
+        productName: 'OpenCode',
+        logoText: 'opencode',
+        aiRole: 'opencode',
+        aiAvatar: 'OC',
+        readyEs: 'OpenCode listo',
+        readyEn: 'OpenCode ready',
+      },
+      lmstudio: {
+        productName: 'LM Studio',
+        logoText: 'LM Studio',
+        aiRole: 'LM Studio',
+        aiAvatar: 'LS',
+        readyEs: 'LM Studio listo',
+        readyEn: 'LM Studio ready',
+      },
+    };
     let selectedMode = 'auto'; // agent / auto
     let attachments = [];
     let costData = {};
@@ -79,6 +97,33 @@
 
   applyI18n();
 
+  function getBranding() {
+    return localModeEnabled ? BRANDING.lmstudio : BRANDING.opencode;
+  }
+
+  function applyBranding() {
+    const b = getBranding();
+    document.body.classList.toggle('theme-lmstudio', localModeEnabled);
+    document.title = b.productName;
+
+    const logoText = document.querySelector('.logo-text');
+    if (logoText) logoText.textContent = b.logoText;
+
+    const welcomeH2 = document.querySelector('.opencode-welcome h2');
+    if (welcomeH2) {
+      const isEnglish = window.vscodeLang && !window.vscodeLang.startsWith('es');
+      welcomeH2.textContent = isEnglish ? b.readyEn : b.readyEs;
+    }
+
+    const typingAvatar = document.querySelector('.typing-avatar');
+    if (typingAvatar) typingAvatar.textContent = b.aiAvatar;
+
+    document.querySelectorAll('.logo-icon img, .opencode-welcome-icon img').forEach((img) => {
+      img.alt = b.logoText;
+    });
+
+    updateTopbarDisplay();
+  }
 
   function setStatus(state, detail) {
     if (state === 'busy') {
@@ -287,8 +332,9 @@
     msgEl.dataset.rawText = text; // Guardar texto original para edición
 
     const isSystem = role === 'system' || role === 'error';
-    const displayRole = isSystem ? role : (role === 'ai' ? 'opencode' : 'tú');
-    const avatarTxt = isSystem ? '!' : (role === 'ai' ? 'OC' : 'Tú');
+    const brand = getBranding();
+    const displayRole = isSystem ? role : (role === 'ai' ? brand.aiRole : 'tú');
+    const avatarTxt = isSystem ? '!' : (role === 'ai' ? brand.aiAvatar : 'Tú');
     
     let bodyHtml = renderBody(text);
     if (role === 'error') {
@@ -860,6 +906,7 @@ if (gitDiffBtn) {
           } else {
             localModeEnabled = false;
           }
+          applyBranding();
         // Clear existing messages
         const msgs = messagesEl.querySelectorAll('.msg');
         msgs.forEach(m => m.remove());
