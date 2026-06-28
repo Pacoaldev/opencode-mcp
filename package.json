@@ -113,7 +113,7 @@
         },
         "opencode.localModeUrl": {
           "type": "string",
-          "default": "http://127.0.0.1:1234",
+          "default": "http://127.0.0.1:5555",
           "description": "%config.localModeUrl.desc%"
         },
         "opencode.quickActions": {
