@@ -1,8 +1,119 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
+import { pathToFileUrl } from './parts';
+import type { PromptPart } from './types';
 
 const TEMP_DIR = path.join(os.tmpdir(), 'opencode-mcp-images');
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
+
+export function isImageFileUrl(value: string): boolean {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('data:image/')) {
+        return true;
+    }
+    if (!trimmed.includes('file://') && !IMAGE_EXT.test(trimmed)) {
+        return false;
+    }
+    const pathLike = trimmed.replace(/^(file:\/\/)+/i, '').split('?')[0];
+    return IMAGE_EXT.test(pathLike);
+}
+
+/** ponytail: legacy attachments sometimes carried file://file://... */
+export function normalizeFileUrl(raw: string): string {
+    let url = raw.trim();
+    while (/^file:\/\//i.test(url) && /^file:\/\//i.test(url.replace(/^file:\/\//i, ''))) {
+        url = url.replace(/^file:\/\//i, '');
+    }
+    if (!/^file:\/\//i.test(url)) {
+        return pathToFileUrl(url.replace(/^file:\/\//i, ''));
+    }
+    return url;
+}
+
+export function guessImageMime(url: string): string {
+    const ext = path.extname(url.replace(/^file:\/\//i, '').split('?')[0]).toLowerCase();
+    const map: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp',
+        '.svg': 'image/svg+xml',
+    };
+    return map[ext] ?? 'image/png';
+}
+
+function fileUrlToPath(url: string): string {
+    const normalized = normalizeFileUrl(url);
+    try {
+        return fileURLToPath(normalized);
+    } catch {
+        return normalized.replace(/^file:\/\//i, '').replace(/\//g, path.sep);
+    }
+}
+
+export async function readImageAsDataUrl(url: string, mime: string): Promise<string | null> {
+    if (url.startsWith('data:image/')) {
+        return url;
+    }
+    try {
+        const buffer = await fs.promises.readFile(fileUrlToPath(url));
+        return `data:${mime};base64,${buffer.toString('base64')}`;
+    } catch {
+        return null;
+    }
+}
+
+/** Upgrade legacy text parts that only contain a local image path. */
+export function coerceImageParts(parts: PromptPart[]): PromptPart[] {
+    const out: PromptPart[] = [];
+    for (const part of parts) {
+        if (part.type === 'file' && part.mime.startsWith('image/')) {
+            out.push({ ...part, url: normalizeFileUrl(part.url) });
+            continue;
+        }
+        if (part.type === 'text' && isImageFileUrl(part.text)) {
+            const trimmed = part.text.trim();
+            if (trimmed.startsWith('data:')) {
+                out.push({
+                    type: 'file',
+                    mime: trimmed.match(/^data:(image\/[^;]+)/)?.[1] ?? 'image/png',
+                    filename: `image-${Date.now()}.png`,
+                    url: trimmed,
+                });
+                continue;
+            }
+            const url = normalizeFileUrl(trimmed);
+            out.push({
+                type: 'file',
+                mime: guessImageMime(url),
+                filename: path.basename(fileUrlToPath(url)),
+                url,
+            });
+            continue;
+        }
+        out.push(part);
+    }
+    return out;
+}
+
+export async function inlineImageDataUrls(parts: PromptPart[]): Promise<PromptPart[]> {
+    const out: PromptPart[] = [];
+    for (const part of parts) {
+        if (part.type === 'file' && part.mime.startsWith('image/')) {
+            const dataUrl = await readImageAsDataUrl(part.url, part.mime);
+            if (dataUrl) {
+                out.push({ ...part, url: dataUrl });
+                continue;
+            }
+        }
+        out.push(part);
+    }
+    return out;
+}
 
 /**
  * Ensures the temporary image directory exists.
@@ -33,9 +144,8 @@ export function saveBase64Image(dataUrl: string, filename?: string): string {
     const filePath = path.join(TEMP_DIR, actualFilename);
     
     fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-    
-    // Return file:// URL - the server can access this since it's local
-    return `file://${filePath}`;
+
+    return pathToFileUrl(filePath);
 }
 
 /**
@@ -53,8 +163,8 @@ export function saveImageBuffer(buffer: Buffer, filename: string, mimeType: stri
     const filePath = path.join(TEMP_DIR, actualFilename);
     
     fs.writeFileSync(filePath, buffer);
-    
-    return `file://${filePath}`;
+
+    return pathToFileUrl(filePath);
 }
 
 /**

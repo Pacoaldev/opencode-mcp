@@ -3,5 +3,9 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"opencode.localModeUrl": "http://127.0.0.1:5555",
+		"opencode.localModeEnabled": true
+	}
 }

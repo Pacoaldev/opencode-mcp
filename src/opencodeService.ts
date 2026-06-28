@@ -6,6 +6,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { getAuthPath } from './settings';
 import { HttpOpenCodeClient } from './httpClient';
+import { coerceImageParts, inlineImageDataUrls, readImageAsDataUrl } from './imageHelper';
 import { partsToDisplayText, type PromptPart } from './parts';
 import { startOpencodeServer, type ManagedServer } from './serverProcess';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
@@ -352,6 +353,8 @@ export class OpenCodeService implements vscode.Disposable {
         }
 
         const settings = getOpenCodeSettings();
+        const normalizedContext = coerceImageParts(contextParts);
+        const normalizedAttachments = coerceImageParts(attachments);
 
         // ponytail: modo local — todo va directo a LM Studio sin tocar OpenCode
         if (settings.localModeEnabled) {
@@ -367,14 +370,16 @@ export class OpenCodeService implements vscode.Disposable {
                 });
                 // Continue with OpenCode as fallback
             } else {
-                return this.sendPromptLocal(text, contextParts, attachments);
+                return this.sendPromptLocal(text, normalizedContext, normalizedAttachments);
             }
         }
 
         const sessionId = await this.ensureSession();
         const selectedAgent = agent || settings.defaultAgent || undefined;
 
-        const parts: PromptPart[] = [...contextParts, ...attachments, { type: 'text', text }];
+        const inlinedContext = await inlineImageDataUrls(normalizedContext);
+        const inlinedAttachments = await inlineImageDataUrls(normalizedAttachments);
+        const parts: PromptPart[] = [...inlinedContext, ...inlinedAttachments, { type: 'text', text }];
 
         this.activeStream.set(sessionId, '');
 
@@ -446,53 +451,35 @@ export class OpenCodeService implements vscode.Disposable {
         const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/chat/completions';
 
         try {
-            let contentPayload: any = text;
             const allParts = [...contextParts, ...attachments];
-            const hasImages = allParts.some(a => a.type === 'file' && a.mime.startsWith('image/'));
-            
-            if (hasImages) {
-                contentPayload = [];
-                contentPayload.push({ type: 'text', text: text });
-                
-                for (const att of allParts) {
-                    if (att.type === 'file' && att.mime.startsWith('image/')) {
-                        let base64Data = '';
-                        if (att.url.startsWith('file://')) {
-                            try {
-                                const filePath = vscode.Uri.parse(att.url).fsPath;
-                                const fileBuffer = await fs.promises.readFile(filePath);
-                                base64Data = `data:${att.mime};base64,${fileBuffer.toString('base64')}`;
-                            } catch (e) {
-                                console.error('Failed to read image file:', e);
-                                continue;
-                            }
-                        } else if (att.url.startsWith('data:')) {
-                            base64Data = att.url;
-                        }
+            let contextText = '';
+            const imageDataUrls: string[] = [];
 
-                        if (base64Data) {
-                            contentPayload.push({
-                                type: 'image_url',
-                                image_url: { url: base64Data }
-                            });
-                        }
-                    }
-                }
-            }
-
-            let finalContext = '';
             for (const part of allParts) {
-                if (part.type === 'text') {
-                    finalContext += part.text + '\n\n';
+                if (part.type === 'file' && part.mime.startsWith('image/')) {
+                    const dataUrl = await readImageAsDataUrl(part.url, part.mime);
+                    if (dataUrl) {
+                        imageDataUrls.push(dataUrl);
+                    }
+                } else if (part.type === 'text') {
+                    contextText += part.text + '\n\n';
                 }
             }
-            
-            if (finalContext) {
-                if (Array.isArray(contentPayload)) {
-                    contentPayload[0].text = finalContext + contentPayload[0].text;
-                } else {
-                    contentPayload = finalContext + contentPayload;
+
+            const userText = (contextText + text).trim() || 'Describe esta imagen.';
+            let contentPayload: string | Array<{ type: string; text?: string; image_url?: { url: string } }> =
+                userText;
+
+            if (imageDataUrls.length > 0) {
+                contentPayload = [{ type: 'text', text: userText }];
+                for (const dataUrl of imageDataUrls) {
+                    contentPayload.push({
+                        type: 'image_url',
+                        image_url: { url: dataUrl },
+                    });
                 }
+            } else if (allParts.some((p) => p.type === 'file' && p.mime.startsWith('image/'))) {
+                throw new Error('No se pudo leer la imagen adjunta. Vuelve a pegarla o adjúntala de nuevo.');
             }
 
             const response = await fetch(url, {

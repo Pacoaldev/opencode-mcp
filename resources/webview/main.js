@@ -447,8 +447,9 @@
       tag.style.color = '#7ab8ff';
 
       const isImg = att.mime && att.mime.startsWith('image/');
-      const iconOrThumb = isImg 
-        ? `<img src="${att.url}" style="width:16px;height:16px;object-fit:cover;border-radius:2px;" />`
+      const previewSrc = att.previewUrl || (att.url && att.url.startsWith('data:') ? att.url : '');
+      const iconOrThumb = isImg && previewSrc
+        ? `<img src="${previewSrc}" style="width:16px;height:16px;object-fit:cover;border-radius:2px;" />`
         : `<svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2;"><path d="M21.44 11.05L12.25 20.24a6 6 0 01-8.49-8.49l9.2-9.19a4 4 0 015.66 5.65L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
 
       tag.innerHTML = `
@@ -800,19 +801,20 @@ if (gitDiffBtn) {
     const clipboardData = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
     if (!clipboardData || !clipboardData.items) return;
     const items = clipboardData.items;
+    let pastedImage = false;
     for (const item of items) {
       if (item.type && item.type.indexOf('image/') === 0) {
+        pastedImage = true;
         const blob = item.getAsFile();
         const reader = new FileReader();
         reader.onload = (event) => {
-          // Instead of adding directly, send to provider to save as temp file
+          const ext = item.type.split('/')[1] || 'png';
           const attachment = {
             type: 'file',
             mime: item.type,
-            filename: `image-${Date.now()}.png`,
+            filename: `image-${Date.now()}.${ext}`,
             url: event.target.result
           };
-          // Send to provider to process and save as local temp file
           vscode.postMessage({
             type: 'processImageAttachment',
             attachment: attachment
@@ -820,6 +822,9 @@ if (gitDiffBtn) {
         };
         reader.readAsDataURL(blob);
       }
+    }
+    if (pastedImage) {
+      e.preventDefault();
     }
   });
 

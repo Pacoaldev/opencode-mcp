@@ -763,14 +763,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                       const ext = path.extname(uri.fsPath).toLowerCase();
                       if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
                           mime = `image/${ext.replace('.', '').replace('jpg', 'jpeg')}`;
-                          // Save image to temp file and return file:// URL so the server can read it
                           const tempUrl = saveImageBuffer(Buffer.from(buffer), path.basename(uri.fsPath), mime);
-                          // Convert to text part with file reference since server doesn't support file parts
                           this.post({
                               type: 'fileAttached',
                               attachment: {
-                                  type: 'text',
-                                  text: `file://${tempUrl}`
+                                  type: 'file',
+                                  mime,
+                                  filename: path.basename(uri.fsPath),
+                                  url: tempUrl,
                               },
                           });
                        } else {
@@ -821,8 +821,11 @@ if (successCount > 0) {
                 this.post({
                     type: 'fileAttached',
                     attachment: {
-                        type: 'text',
-                        text: `file://${fileUrl}`,
+                        type: 'file',
+                        mime: attachment.mime || 'image/png',
+                        filename: attachment.filename || `image-${Date.now()}.png`,
+                        url: fileUrl,
+                        previewUrl: attachment.url,
                     },
                 });
            } catch (e) {
