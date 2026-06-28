@@ -324,6 +324,10 @@ export class OpenCodeService implements vscode.Disposable {
     }
 
     async listModels(): Promise<{ id: string; name: string }[]> {
+        const settings = getOpenCodeSettings();
+        if (settings.localModeEnabled) {
+            return this.listLMStudioModels();
+        }
         if (!this.client) {
             await this.connect();
         }
@@ -331,6 +335,54 @@ export class OpenCodeService implements vscode.Disposable {
             return [];
         }
         return this.client.listModels();
+    }
+
+    async isLMStudioAvailable(): Promise<boolean> {
+        const settings = getOpenCodeSettings();
+        const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/models';
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000);
+            const response = await fetch(url, { method: 'GET', signal: controller.signal });
+            clearTimeout(timeout);
+            return response.ok;
+        } catch {
+            return false;
+        }
+    }
+
+    private async listLMStudioModels(): Promise<{ id: string; name: string }[]> {
+        const settings = getOpenCodeSettings();
+        const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/models';
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000);
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (!response.ok) {
+                return [];
+            }
+            const data = (await response.json()) as { data?: { id: string }[] };
+            return (data.data ?? []).map((m) => ({
+                id: `lmstudio::${m.id}`,
+                name: `LM Studio - ${m.id}`,
+            }));
+        } catch {
+            return [];
+        }
+    }
+
+    private resolveLMStudioModel(model?: string): string | undefined {
+        if (!model) {
+            return undefined;
+        }
+        if (model.startsWith('lmstudio::')) {
+            return model.slice('lmstudio::'.length);
+        }
+        if (model.includes('::')) {
+            return model.split('::').slice(1).join('::');
+        }
+        return model;
     }
 
     async sendPrompt(
@@ -341,37 +393,31 @@ export class OpenCodeService implements vscode.Disposable {
         attachments: PromptPart[] = [],
         isFailover: boolean = false
     ): Promise<void> {
-        if (!this.client) {
-            await this.connect();
-        }
-        if (!this.client) {
-            throw new Error('Sin conexión a OpenCode');
-        }
+        const settings = getOpenCodeSettings();
+        const normalizedContext = coerceImageParts(contextParts);
+        const normalizedAttachments = coerceImageParts(attachments);
 
         if (!isFailover) {
             this.lastPromptInfo = { text, agent, model, contextParts, attachments };
         }
 
-        const settings = getOpenCodeSettings();
-        const normalizedContext = coerceImageParts(contextParts);
-        const normalizedAttachments = coerceImageParts(attachments);
-
         // ponytail: modo local — todo va directo a LM Studio sin tocar OpenCode
         if (settings.localModeEnabled) {
-            // Verify LM Studio is reachable before sending
-            const lmOk = await this.checkLMStudio();
+            const lmOk = await this.isLMStudioAvailable();
             if (!lmOk) {
-                // Notify user and fallback to OpenCode
-                this.emitStream({
-                    sessionId: this.sessionId ?? 'fallback',
-                    text: '\n> ⚠️ LM Studio no está disponible en la URL configurada. Por favor, inícialo o desactiva el modo local.\n',
-                    done: false,
-                    statusDetail: 'LM Studio no disponible'
-                });
-                // Continue with OpenCode as fallback
-            } else {
-                return this.sendPromptLocal(text, normalizedContext, normalizedAttachments);
+                throw new Error(
+                    `Modo local activo pero LM Studio no responde en ${settings.localModeUrl}. ` +
+                        'Inicia el servidor en LM Studio o desactiva opencode.localModeEnabled.'
+                );
             }
+            return this.sendPromptLocal(text, normalizedContext, normalizedAttachments, model);
+        }
+
+        if (!this.client) {
+            await this.connect();
+        }
+        if (!this.client) {
+            throw new Error('Sin conexión a OpenCode');
         }
 
         const sessionId = await this.ensureSession();
@@ -422,21 +468,12 @@ export class OpenCodeService implements vscode.Disposable {
         }
     }
 
-    private async checkLMStudio(): Promise<boolean> {
-        const settings = getOpenCodeSettings();
-        const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/models';
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 2000);
-            const response = await fetch(url, { method: 'GET', signal: controller.signal });
-            clearTimeout(timeout);
-            return response.ok;
-        } catch {
-            return false;
-        }
-    }
-
-    private async sendPromptLocal(text: string, contextParts: PromptPart[], attachments: PromptPart[]): Promise<void> {
+    private async sendPromptLocal(
+        text: string,
+        contextParts: PromptPart[],
+        attachments: PromptPart[],
+        model?: string
+    ): Promise<void> {
         const settings = getOpenCodeSettings();
         const sessionId = this.sessionId ?? 'local-backup';
         this.activeStream.set(sessionId, '');
@@ -482,13 +519,19 @@ export class OpenCodeService implements vscode.Disposable {
                 throw new Error('No se pudo leer la imagen adjunta. Vuelve a pegarla o adjúntala de nuevo.');
             }
 
+            const lmModel = this.resolveLMStudioModel(model);
+            const requestBody: Record<string, unknown> = {
+                messages: [{ role: 'user', content: contentPayload }],
+                stream: true,
+            };
+            if (lmModel) {
+                requestBody.model = lmModel;
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [{ role: 'user', content: contentPayload }],
-                    stream: true,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok || !response.body) {

@@ -147,12 +147,32 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     async refreshState(): Promise<void> {
         const settings = getOpenCodeSettings();
         this.selectedAgent = settings.defaultAgent;
+        const localMode = {
+            enabled: settings.localModeEnabled,
+            url: settings.localModeUrl,
+            connected: settings.localModeEnabled
+                ? await this.service.isLMStudioAvailable()
+                : false,
+        };
         try {
-            const agents = await this.service.listAgents();
-            const models = await this.service.listModels();
+            let agents: Awaited<ReturnType<OpenCodeService['listAgents']>> = [];
+            let models: Awaited<ReturnType<OpenCodeService['listModels']>> = [];
+
+            if (settings.localModeEnabled) {
+                models = await this.service.listModels();
+                if (!localMode.connected) {
+                    this.post({
+                        type: 'error',
+                        message:
+                            `Modo LM Studio activo pero no hay respuesta en ${settings.localModeUrl}. ` +
+                            'Inicia el servidor local en LM Studio.',
+                    });
+                }
+            } else {
+                agents = await this.service.listAgents();
+                models = await this.service.listModels();
+            }
             const primary = agents.filter((a) => a.mode === 'primary' || a.mode === 'all');
-            
-            // Obtener información de Git
             const workspaceDir = getWorkspaceDirectory();
             let gitInfo = null;
             if (workspaceDir) {
@@ -198,7 +218,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                       quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
                       costData,
                       templates: this.context.workspaceState.get<Template[]>('templates') || [],
-                      gitInfo
+                      gitInfo,
+                      localMode,
                   });
           } catch (error) {
               const msg = getErrorMessage(error);

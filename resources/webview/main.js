@@ -30,6 +30,7 @@
     let streamingMetaNode = null;
     let selectedModel = '';
     let selectedAgent = '';
+    let localModeEnabled = false;
     let selectedMode = 'auto'; // agent / auto
     let attachments = [];
     let costData = {};
@@ -590,7 +591,8 @@ function renderTemplateDropdown() {
   function updateTopbarDisplay() {
     const agentText = selectedAgent ? `@${selectedAgent}` : 'Default';
     const modelText = selectedModel ? selectedModel.split('::').pop() : 'default';
-    if (modelNameEl) modelNameEl.innerHTML = `<span class="model-display">${escHtml(modelText)}</span>`;
+    const prefix = localModeEnabled ? 'LM Studio · ' : '';
+    if (modelNameEl) modelNameEl.innerHTML = `<span class="model-display">${escHtml(prefix + modelText)}</span>`;
     const agentNameEl = document.getElementById('agentName');
     if (agentNameEl) agentNameEl.textContent = agentText;
   }
@@ -849,6 +851,15 @@ if (gitDiffBtn) {
           updateCostPanel();
           templates = msg.templates || [];
           renderTemplateDropdown();
+          if (msg.localMode) {
+            localModeEnabled = !!msg.localMode.enabled;
+            if (localModeEnabled && !msg.localMode.connected) {
+              appendMessage('system',
+                `Modo LM Studio activo pero no conectado en ${msg.localMode.url}. Inicia el servidor local.`);
+            }
+          } else {
+            localModeEnabled = false;
+          }
         // Clear existing messages
         const msgs = messagesEl.querySelectorAll('.msg');
         msgs.forEach(m => m.remove());
