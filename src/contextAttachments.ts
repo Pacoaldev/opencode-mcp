@@ -1,20 +1,80 @@
 import * as vscode from 'vscode';
 import { buildFilePart, buildSelectionPart, type PromptPart } from './parts';
+import { contextLabel } from './parts';
+import {
+    applyPriorityPrefix,
+    estimateContextTokens,
+    partCharSize,
+    priorityLabelPrefix,
+    type ContextPriority,
+} from './contextBudget';
+
+interface StoredContextItem {
+    part: PromptPart;
+    priority?: ContextPriority;
+}
+
+export interface ContextDisplayItem {
+    label: string;
+    index: number;
+    priority?: ContextPriority;
+}
 
 export class ContextAttachments {
-    private readonly items: PromptPart[] = [];
+    private readonly items: StoredContextItem[] = [];
     private readonly MAX_SIZE_BYTES = 1024 * 1024; // 1MB
 
     getItems(): readonly PromptPart[] {
-        return this.items;
+        return this.items.map((item) => applyPriorityPrefix(item.part, item.priority));
+    }
+
+    getDisplayItems(): ContextDisplayItem[] {
+        return this.items.map((item, index) => ({
+            label: priorityLabelPrefix(item.priority) + contextLabel(item.part),
+            index,
+            priority: item.priority,
+        }));
+    }
+
+    estimateTokens(promptText = ''): number {
+        return estimateContextTokens(promptText, this.getItems());
     }
 
     clear(): void {
         this.items.length = 0;
     }
 
-    addPart(part: PromptPart): void {
-        this.items.push(part);
+    trimAll(): void {
+        this.clear();
+    }
+
+    /** ponytail: O(n) scan; fine for ≤50 context parts */
+    trimLarge(maxBytes: number): number {
+        const before = this.items.length;
+        this.items.splice(
+            0,
+            this.items.length,
+            ...this.items.filter((item) => partCharSize(item.part) <= maxBytes)
+        );
+        return before - this.items.length;
+    }
+
+    trimKeepLast(): void {
+        if (this.items.length <= 1) {
+            return;
+        }
+        this.items.splice(0, this.items.length - 1);
+    }
+
+    setPriority(index: number, priority?: ContextPriority): void {
+        if (index < 0 || index >= this.items.length) {
+            return;
+        }
+        this.items[index].priority = priority;
+    }
+
+    addPart(part: PromptPart, priority?: ContextPriority): void {
+        this.items.push({ part, priority });
     }
 
     removePart(index: number): void {
@@ -34,8 +94,7 @@ export class ContextAttachments {
             vscode.window.showWarningMessage('Guarda el archivo antes de añadirlo al contexto.');
             return false;
         }
-        
-        // Comprobar tamaño (aproximado por longitud de texto ya que ya está en memoria)
+
         if (doc.getText().length > this.MAX_SIZE_BYTES) {
             vscode.window.showWarningMessage('El archivo es demasiado grande (>1MB) y no será añadido al contexto.');
             return false;
@@ -56,7 +115,7 @@ export class ContextAttachments {
             vscode.window.showWarningMessage('Guarda el archivo antes de añadir la selección.');
             return false;
         }
-        
+
         const text = doc.getText(editor.selection);
         if (text.length > this.MAX_SIZE_BYTES) {
             vscode.window.showWarningMessage('La selección es demasiado grande (>1MB) y no será añadida al contexto.');
@@ -65,9 +124,7 @@ export class ContextAttachments {
 
         const startLine = editor.selection.start.line;
         const endLine = editor.selection.end.line;
-        this.addPart(
-            buildSelectionPart(doc.uri.fsPath, doc.getText(), startLine, endLine)
-        );
+        this.addPart(buildSelectionPart(doc.uri.fsPath, doc.getText(), startLine, endLine));
         return true;
     }
 
@@ -86,7 +143,7 @@ export class ContextAttachments {
                         skippedCount++;
                         continue;
                     }
-                    
+
                     const doc = await vscode.workspace.openTextDocument(input.uri);
                     if (doc.isUntitled) {
                         continue;
@@ -98,11 +155,13 @@ export class ContextAttachments {
                 }
             }
         }
-        
+
         if (count === 0 && skippedCount === 0) {
             vscode.window.showWarningMessage('No hay archivos de texto válidos abiertos.');
         } else if (skippedCount > 0) {
-            vscode.window.showInformationMessage(`Se añadieron ${count} archivos. Se omitieron ${skippedCount} archivo(s) por exceder el límite de 1MB.`);
+            vscode.window.showInformationMessage(
+                `Se añadieron ${count} archivos. Se omitieron ${skippedCount} archivo(s) por exceder el límite de 1MB.`
+            );
         }
         return count;
     }
@@ -111,7 +170,9 @@ export class ContextAttachments {
         try {
             const stat = await vscode.workspace.fs.stat(uri);
             if (stat.size > this.MAX_SIZE_BYTES) {
-                vscode.window.showWarningMessage(`El archivo supera el límite de 1MB y será omitido: ${uri.fsPath}`);
+                vscode.window.showWarningMessage(
+                    `El archivo supera el límite de 1MB y será omitido: ${uri.fsPath}`
+                );
                 return;
             }
             const doc = await vscode.workspace.openTextDocument(uri);

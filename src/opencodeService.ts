@@ -12,6 +12,18 @@ import { partsToDisplayText, type PromptPart } from './parts';
 import { startOpencodeServer, type ManagedServer } from './serverProcess';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
 import type { Agent, ServerEvent, Session, SessionMessage } from './types';
+import { gitProvider } from './gitProvider';
+import {
+    estimateTokensFromChars,
+    logFailover,
+    logHttpError,
+    logInfo,
+    logReconnect,
+    logSend,
+    logSse,
+    partsCharCount,
+    truncate,
+} from './logger';
 
 /**
  * Utility function to extract error message from unknown error type
@@ -24,6 +36,13 @@ const execPromise = promisify(exec);
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+export interface FailoverInfo {
+    reason: string;
+    fromLabel: string;
+    toLabel: string;
+    keyRotationOnly: boolean;
+}
+
 export interface StreamUpdate {
     sessionId: string;
     text: string;
@@ -31,6 +50,8 @@ export interface StreamUpdate {
     error?: string;
     metrics?: { input: number; output: number };
     statusDetail?: string;
+    failover?: FailoverInfo;
+    systemMessage?: string;
 }
 
 export class OpenCodeService implements vscode.Disposable {
@@ -153,8 +174,40 @@ export class OpenCodeService implements vscode.Disposable {
 
     private persistSessionId(sessionId: string): void {
         this.sessionId = sessionId;
-        const key = `session.${this.workspaceKey()}`;
+        void this.persistSessionIdAsync(sessionId);
+    }
+
+    private async getSessionStateKey(): Promise<string> {
+        const ws = this.workspaceKey();
+        const settings = getOpenCodeSettings();
+        if (!settings.sessionPerBranch) {
+            return `session.${ws}`;
+        }
+        const cwd = getWorkspaceDirectory();
+        if (!cwd) {
+            return `session.${ws}`;
+        }
+        try {
+            if (!(await gitProvider.isGitRepo(cwd))) {
+                return `session.${ws}`;
+            }
+            const branch = await gitProvider.getCurrentBranch(cwd);
+            return `session.${ws}::${branch}`;
+        } catch {
+            return `session.${ws}`;
+        }
+    }
+
+    private async persistSessionIdAsync(sessionId: string): Promise<void> {
+        const key = await this.getSessionStateKey();
         void OpenCodeService.extensionContext?.workspaceState.update(key, sessionId);
+    }
+
+    /** Re-persist current session under the active branch key (after git checkout). */
+    async bindCurrentSessionToBranch(): Promise<void> {
+        if (this.sessionId) {
+            await this.persistSessionIdAsync(this.sessionId);
+        }
     }
 
     private getAuthHeaders(): Record<string, string> {
@@ -232,7 +285,7 @@ export class OpenCodeService implements vscode.Disposable {
             throw new Error('Cliente no inicializado');
         }
 
-        const storageKey = `session.${this.workspaceKey()}`;
+        const storageKey = await this.getSessionStateKey();
         const existingId =
             this.sessionId ??
             OpenCodeService.extensionContext?.workspaceState.get<string>(storageKey);
@@ -254,7 +307,7 @@ export class OpenCodeService implements vscode.Disposable {
 
     async initialize(context: vscode.ExtensionContext): Promise<void> {
         OpenCodeService.extensionContext = context;
-        const storageKey = `session.${this.workspaceKey()}`;
+        const storageKey = await this.getSessionStateKey();
         this.sessionId = context.workspaceState.get<string>(storageKey);
         try {
             await this.connect();
@@ -287,6 +340,7 @@ export class OpenCodeService implements vscode.Disposable {
         await this.client.abortSession(this.sessionId);
         this.activeStream.delete(this.sessionId);
         if (!silent) {
+            logSse('stream_abort', `session=${this.sessionId}`);
             this.emitStream({
                 sessionId: this.sessionId,
                 text: '',
@@ -401,12 +455,27 @@ export class OpenCodeService implements vscode.Disposable {
         const normalizedContext = coerceImageParts(resolvedContext);
         const normalizedAttachments = coerceImageParts(resolvedAttachments);
 
+        const promptChars =
+            resolvedText.length +
+            partsCharCount(normalizedContext) +
+            partsCharCount(normalizedAttachments);
+        const estimatedTokens = estimateTokensFromChars(promptChars);
+
         if (!isFailover) {
             this.lastPromptInfo = { text, agent, model, contextParts, attachments };
         }
 
         // ponytail: modo local — todo va directo a LM Studio sin tocar OpenCode
         if (settings.localModeEnabled) {
+            logSend({
+                mode: 'lmstudio',
+                model,
+                agent,
+                contextParts: normalizedContext.length,
+                attachmentParts: normalizedAttachments.length,
+                promptChars,
+                estimatedTokens,
+            });
             const lmOk = await this.isLMStudioAvailable();
             if (!lmOk) {
                 throw new Error(
@@ -426,6 +495,17 @@ export class OpenCodeService implements vscode.Disposable {
 
         const sessionId = await this.ensureSession();
         const selectedAgent = agent || settings.defaultAgent || undefined;
+
+        logSend({
+            mode: 'opencode',
+            model,
+            agent: selectedAgent,
+            contextParts: normalizedContext.length,
+            attachmentParts: normalizedAttachments.length,
+            promptChars,
+            estimatedTokens,
+        });
+        logSse('stream_start', `session=${sessionId}`);
 
         const inlinedContext = await inlineImageDataUrls(normalizedContext);
         const inlinedAttachments = await inlineImageDataUrls(normalizedAttachments);
@@ -462,6 +542,7 @@ export class OpenCodeService implements vscode.Disposable {
              this.clearTimeout();
              this.activeStream.delete(sessionId);
              const message = getErrorMessage(error);
+             logSse('stream_error', truncate(message));
              this.emitStream({
                  sessionId,
                  text: '',
@@ -470,6 +551,23 @@ export class OpenCodeService implements vscode.Disposable {
              });
             throw error;
         }
+    }
+
+    private emitFailoverStatus(
+        sessionId: string,
+        failover: FailoverInfo,
+        statusDetail: string,
+        systemMessage: string
+    ): void {
+        logFailover(failover.fromLabel, failover.toLabel, failover.reason);
+        this.emitStream({
+            sessionId,
+            text: this.activeStream.get(sessionId) ?? '',
+            done: false,
+            failover,
+            systemMessage,
+            statusDetail,
+        });
     }
 
     private async sendPromptLocal(
@@ -540,7 +638,9 @@ export class OpenCodeService implements vscode.Disposable {
             });
 
             if (!response.ok || !response.body) {
-                throw new Error(`LM Studio ${response.status}: ${await response.text().catch(() => 'error')}`);
+                const errBody = await response.text().catch(() => '');
+                logHttpError('POST', url, response.status, errBody);
+                throw new Error(`LM Studio ${response.status}: ${errBody || 'error'}`);
             }
 
             const reader = response.body.getReader();
@@ -581,7 +681,10 @@ export class OpenCodeService implements vscode.Disposable {
                 done: true,
                 statusDetail: 'Listo.',
             });
+            logSse('stream_end', `session=${sessionId}`);
         } catch (error) {
+            const message = getErrorMessage(error);
+            logSse('stream_error', truncate(message));
             this.emitStream({
                 sessionId,
                 text: '',
@@ -642,7 +745,7 @@ export class OpenCodeService implements vscode.Disposable {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 this.reconnectAttempts++;
                 const delay = Math.pow(2, this.reconnectAttempts) * 1000;
-                console.log(`[Reconexión] Conexión perdida. Reintentando en ${delay}ms... (Intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                logReconnect(this.reconnectAttempts, this.maxReconnectAttempts, delay);
                 await new Promise((r) => setTimeout(r, delay));
                 if (!signal.aborted) {
                     try {
@@ -657,6 +760,7 @@ export class OpenCodeService implements vscode.Disposable {
             }
              const message = getErrorMessage(error);
              this.setStatus('error', `Event stream: ${message}`);
+             logSse('stream_error', `SSE lost: ${truncate(message)}`);
 
             const activeId = this.sessionId;
             if (activeId && this.activeStream.has(activeId)) {
@@ -781,9 +885,11 @@ export class OpenCodeService implements vscode.Disposable {
               if (failedOver) {
                   return;
               }
-              
+
+              logSse('stream_error', truncate(errMsg));
               this.emitStream({ sessionId, text: '', done: true, error: errMsg, statusDetail: 'Finalizado con error.' });
           } else {
+              logSse('stream_end', `session=${sessionId}`);
               this.emitStream({ sessionId, text, done: true, metrics: lastAssistant?.info?.tokens, statusDetail: 'Listo.' });
            }
        }
@@ -950,44 +1056,49 @@ export class OpenCodeService implements vscode.Disposable {
                 return false;
             }
 
-            // 4. Mostrar mensaje de transición al usuario en el chat
-            const displayModel = targetModel ? `${targetProvider}::${targetModel}` : targetProvider;
+            // 4. Notificar failover al usuario (system message + estado en UI)
+            const fromLabel = modelName ? `${providerName}::${modelName}` : providerName;
+            const toLabel = targetModel ? `${targetProvider}::${targetModel}` : targetProvider;
+            const keyRotationOnly = targetProvider === providerName;
+            const failover: FailoverInfo = {
+                reason: errMsg,
+                fromLabel,
+                toLabel,
+                keyRotationOnly,
+            };
+            const swapDesc = keyRotationOnly
+                ? `Rate limit o error en ${fromLabel}. Rotando API key del mismo proveedor.`
+                : `Error en ${fromLabel}. Cambiando a ${toLabel}.`;
+
             if (!this.lastPromptInfo) return false;
-            this.emitStream({ 
-                sessionId: this.sessionId, 
-                text: `\n> ⚠️ **Error detectado**: ${errMsg}\n> 🔄 **Cambiando al proveedor/clave de respaldo**: \`${displayModel}\`...\n`, 
-                done: false,
-                statusDetail: 'Cambiando a proveedor de respaldo...'
-            });
- 
+            this.emitFailoverStatus(
+                this.sessionId,
+                failover,
+                'Failover: reintentando…',
+                `[Agent Info] ${swapDesc} Reintentando…`
+            );
+
             // 5. Reiniciar/Reconectar para cargar la nueva clave
             if (!this.lastPromptInfo) return false;
-            this.emitStream({ 
-                sessionId: this.sessionId, 
-                text: `\n> 🔄 **Reiniciando servidor local de OpenCode...**\n`, 
+            this.emitStream({
+                sessionId: this.sessionId,
+                text: this.activeStream.get(this.sessionId) ?? '',
                 done: false,
-                statusDetail: 'Reiniciando OpenCode...'
+                systemMessage: 'Reiniciando conexión con OpenCode para aplicar la nueva clave…',
+                statusDetail: 'Reiniciando OpenCode…',
             });
+            logInfo('Failover: reconnecting OpenCode server');
             await this.reconnect();
- 
+
             if (!this.lastPromptInfo) return false;
             await new Promise(r => setTimeout(r, 1500));
- 
-            if (!this.lastPromptInfo) return false;
-            this.emitStream({ 
-                sessionId: this.sessionId, 
-                text: `\n> 🚀 **Reintentando consulta...**\n`, 
-                done: false,
-                statusDetail: 'Reintentando petición...'
-            });
- 
+
             const failoverModel = targetModel ? `${targetProvider}::${targetModel}` : undefined;
-            
-            // Persistir el nuevo modelo seleccionado en el estado de VS Code para que el dropdown se actualice
+
             if (failoverModel) {
                 this.persistSelectedModel(failoverModel);
             }
- 
+
             if (!this.lastPromptInfo) return false;
             await this.sendPrompt(
                 this.lastPromptInfo.text,

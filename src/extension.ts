@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ChatViewProvider } from './chatViewProvider';
 import { OpenCodeService } from './opencodeService';
 import { cleanupOldImages } from './imageHelper';
+import { getChatLogger, logInfo } from './logger';
 import { Template } from './types';
 
 let chatProvider: ChatViewProvider | undefined;
@@ -13,6 +14,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     context.subscriptions.push(
         service,
+        { dispose: () => getChatLogger().dispose() },
         vscode.window.registerWebviewViewProvider(
             ChatViewProvider.viewType,
             chatProvider,
@@ -21,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
 
      await service.initialize(context);
+     logInfo('OpenCode Chat Panel activado');
      
      // Clean up old temporary images on activation
      cleanupOldImages();
@@ -32,6 +35,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
      
      context.subscriptions.push(new vscode.Disposable(() => {
          clearInterval(cleanupInterval);
+     }));
+
+     const branchPoll = setInterval(() => {
+         void chatProvider?.checkBranchChange();
+     }, 4000);
+     context.subscriptions.push(new vscode.Disposable(() => {
+         clearInterval(branchPoll);
      }));
 
     context.subscriptions.push(

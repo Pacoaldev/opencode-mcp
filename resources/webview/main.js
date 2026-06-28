@@ -25,6 +25,9 @@
    const gitContextBtn = document.getElementById('gitContextBtn');
    const contextAddBtn = document.getElementById('contextAddBtn');
 
+    let contextWarnTokens = 32000;
+    let contextHardWarnTokens = 64000;
+
     let streamingNode = null;
     let streamingBodyNode = null;
     let streamingMetaNode = null;
@@ -132,8 +135,10 @@
   applyBranding();
 
   function setStatus(state, detail) {
-    if (state === 'busy') {
-      showTyping(detail);
+    const modelDot = document.querySelector('.model-dot');
+    if (state === 'busy' || state === 'failover') {
+      showTyping(detail || (state === 'failover' ? 'Failover: reintentando…' : undefined));
+      if (modelDot) modelDot.classList.toggle('failover-pulse', state === 'failover');
       if (!generationInterval) {
         generationStartTime = Date.now();
         generationInterval = setInterval(() => {
@@ -156,6 +161,7 @@
        if (stopBtnSep) stopBtnSep.style.display = 'block';
 
     } else {
+      if (modelDot) modelDot.classList.remove('failover-pulse');
       if (generationInterval) {
         clearInterval(generationInterval);
         generationInterval = null;
@@ -487,6 +493,75 @@
    });
 	
    // Initial mode set; actual handler updated via setStatus
+
+  function closeContextMenu() {
+    const contextMenu = document.getElementById('contextMenu');
+    if (contextMenu) contextMenu.classList.remove('show');
+  }
+
+  function updateContextTokenBadge(estimatedTokens, warnTokens, hardWarnTokens) {
+    if (warnTokens !== undefined) contextWarnTokens = warnTokens;
+    if (hardWarnTokens !== undefined) contextHardWarnTokens = hardWarnTokens;
+    let badge = document.getElementById('ctxTokenBadge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.id = 'ctxTokenBadge';
+      badge.className = 'ctx-token-badge';
+      badge.title = 'Clic para recortar contexto';
+      badge.onclick = () => vscode.postMessage({ type: 'trimContext', action: 'menu' });
+      contextBar.appendChild(badge);
+    }
+    const est = estimatedTokens || 0;
+    badge.textContent = `~${est.toLocaleString()} tokens`;
+    badge.classList.remove('warn', 'hard');
+    if (est >= contextHardWarnTokens) badge.classList.add('hard');
+    else if (est >= contextWarnTokens) badge.classList.add('warn');
+  }
+
+  function renderContextItems(items) {
+    const existingCtx = contextBar.querySelectorAll('.ctx-tag:not(.ctx-att)');
+    existingCtx.forEach(el => el.remove());
+    (items || []).forEach((item) => {
+      const label = typeof item === 'string' ? item : item.label;
+      const index = typeof item === 'string' ? undefined : item.index;
+      const priority = typeof item === 'string' ? undefined : item.priority;
+      const tag = document.createElement('div');
+      tag.className = 'ctx-tag';
+      if (priority === 'critical') tag.classList.add('ctx-priority-critical');
+      else if (priority === 'ref') tag.classList.add('ctx-priority-ref');
+      tag.innerHTML = `
+        <svg viewBox="0 0 16 16"><path d="M4 4h8M4 8h6M4 11h4" stroke-linecap="round"/></svg>
+        ${escHtml(label)}
+        <span class="ctx-tag-close">
+          <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
+        </span>
+      `;
+      tag.querySelector('.ctx-tag-close').onclick = (e) => {
+        e.stopPropagation();
+        if (index !== undefined) vscode.postMessage({ type: 'removeContext', index });
+      };
+      tag.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (index !== undefined) vscode.postMessage({ type: 'contextTagMenu', index });
+      });
+      const dropdown = contextBar.querySelector('.context-dropdown');
+      if (dropdown) contextBar.insertBefore(tag, dropdown);
+      else contextBar.appendChild(tag);
+    });
+  }
+
+  window.trimContextAll = function () {
+    vscode.postMessage({ type: 'trimContext', action: 'all' });
+    closeContextMenu();
+  };
+  window.trimContextLarge = function () {
+    vscode.postMessage({ type: 'trimContext', action: 'large' });
+    closeContextMenu();
+  };
+  window.trimContextLast = function () {
+    vscode.postMessage({ type: 'trimContext', action: 'last' });
+    closeContextMenu();
+  };
 
   function renderAttachments() {
     const existingAtts = contextBar.querySelectorAll('.ctx-att');
@@ -1122,6 +1197,11 @@ if (gitDiffBtn) {
           
           updateTopbarDisplay();
         }
+
+        if (msg.contextWarnTokens !== undefined) contextWarnTokens = msg.contextWarnTokens;
+        if (msg.contextHardWarnTokens !== undefined) contextHardWarnTokens = msg.contextHardWarnTokens;
+        renderContextItems(msg.context);
+        updateContextTokenBadge(msg.contextTokens, msg.contextWarnTokens, msg.contextHardWarnTokens);
         break;
       case 'chatCleared':
         // Eliminar todos los mensajes del DOM
@@ -1134,7 +1214,11 @@ if (gitDiffBtn) {
         setStatus(msg.state, msg.detail);
         break;
       case 'status':
-        setStatus(msg.state === 'busy' ? 'busy' : 'idle');
+        if (msg.state === 'failover') {
+          setStatus('failover', msg.detail);
+        } else {
+          setStatus(msg.state === 'busy' ? 'busy' : 'idle', msg.detail);
+        }
         break;
       case 'user':
         appendMessage('user', msg.text);
@@ -1180,27 +1264,12 @@ if (gitDiffBtn) {
         streamingMetaNode = null;
         break;
 case 'context':
-         // Limpiamos los tags de contexto (que no sean adjuntos)
-         const existingCtx = contextBar.querySelectorAll('.ctx-tag:not(.ctx-att)');
-         existingCtx.forEach(el => el.remove());
-         
-         (msg.items || []).forEach((item, index) => {
-             const tag = document.createElement('div');
-             tag.className = 'ctx-tag';
-             tag.innerHTML = `
-               <svg viewBox="0 0 16 16"><path d="M4 4h8M4 8h6M4 11h4" stroke-linecap="round"/></svg>
-               ${item}
-               <span class="ctx-tag-close">
-                 <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
-               </span>
-             `;
-             tag.querySelector('.ctx-tag-close').onclick = () => {
-               vscode.postMessage({ type: 'removeContext', index });
-             };
-             const dropdown = contextBar.querySelector('.context-dropdown');
-             if (dropdown) contextBar.insertBefore(tag, dropdown);
-             else contextBar.appendChild(tag);
-         });
+         renderContextItems(msg.items || msg.context || []);
+         if (msg.estimatedTokens !== undefined) {
+           updateContextTokenBadge(msg.estimatedTokens, msg.warnTokens, msg.hardWarnTokens);
+         } else if ((msg.items || msg.context || []).length === 0) {
+           updateContextTokenBadge(0);
+         }
          break;
        case 'gitInfoUpdate':
          // Actualizar visualización de Git en tiempo real

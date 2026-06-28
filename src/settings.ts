@@ -14,6 +14,10 @@ export interface OpenCodeSettings {
     opencodeBin: string;
     localModeEnabled: boolean;
     localModeUrl: string;
+    contextWarnTokens: number;
+    contextHardWarnTokens: number;
+    contextTrimLargeKb: number;
+    sessionPerBranch: boolean;
 }
 
 export function getOpenCodeSettings(): OpenCodeSettings {
@@ -30,6 +34,10 @@ export function getOpenCodeSettings(): OpenCodeSettings {
         opencodeBin: config.get<string>('bin', ''),
         localModeEnabled: config.get<boolean>('localModeEnabled', false),
         localModeUrl: config.get<string>('localModeUrl', 'http://127.0.0.1:1234'),
+        contextWarnTokens: config.get<number>('contextWarnTokens', 32000),
+        contextHardWarnTokens: config.get<number>('contextHardWarnTokens', 64000),
+        contextTrimLargeKb: config.get<number>('contextTrimLargeKb', 64),
+        sessionPerBranch: config.get<boolean>('sessionPerBranch', true),
     };
 }
 

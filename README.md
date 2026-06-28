@@ -7,9 +7,9 @@
 Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conectado directamente a tu instancia local de **OpenCode**. Permite interactuar con tus **agents**, **skills**, **MCP** y **providers** configurados en `~/.config/opencode/opencode.jsonc` e incorpora características avanzadas como **historial de chat persistente**, **gestión de errores**, **adaptador MCP**, **agente de failover** y **panel de costos acumulativos** en tiempo real.
 
 
-| Interfaz principal | Panel de costos | Ajustes y modelos |
-| :---: | :---: | :---: |
-| [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/1.png" alt="Interfaz principal" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/1.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/2.png" alt="Panel de costos" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/2.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/3.png" alt="Ajustes y modelos" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/3.png) |
+| Interfaz principal | Panel de costos | Ajustes y modelos | Modo LM Studio
+| :---: | :---: | :---: | :---: |
+| [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/1.png" alt="Interfaz principal" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/1.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/2.png" alt="Panel de costos" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/2.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/3.png" alt="Ajustes y modelos" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/3.png) | [<img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/4.png" alt="Chat LM Studio" width="100%" />](https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/4.png) |
 
 
 ## Características

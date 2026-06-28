@@ -266,6 +266,15 @@
     flex-shrink: 0;
   }
 
+  .model-dot.failover-pulse {
+    animation: failover-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes failover-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(1.35); }
+  }
+
   .model-name {
     max-width: 130px;
     white-space: nowrap;
@@ -497,6 +506,60 @@
   }
 
   .ctx-tag-close:hover { opacity: 1; }
+
+  .ctx-token-badge {
+    display: flex;
+    align-items: center;
+    padding: 3px 8px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    white-space: nowrap;
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .ctx-token-badge:hover {
+    border-color: var(--accent-dim);
+    color: var(--tag-fg);
+  }
+
+  .ctx-token-badge.warn {
+    color: #e6a817;
+    border-color: #8a6914;
+  }
+
+  .ctx-token-badge.hard {
+    color: #f48771;
+    border-color: #9a4a3a;
+  }
+
+  .ctx-tag.ctx-priority-critical {
+    border-color: #c45c26;
+    background: rgba(196, 92, 38, 0.15);
+    color: #f0a070;
+  }
+
+  .ctx-tag.ctx-priority-ref {
+    border-color: var(--border);
+    opacity: 0.85;
+  }
+
+  .context-menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  .context-menu-item.trim-action {
+    color: var(--text-muted);
+    font-size: 10px;
+  }
 
   .ctx-add {
     display: flex;
@@ -1125,20 +1188,6 @@
 
   <!-- BARRA DE CONTEXTO -->
  <div class="context-bar" id="contextBar">
-   <div class="ctx-tag">
-     <svg viewBox="0 0 16 16"><path d="M4 4h8M4 8h6M4 11h4" stroke-linecap="round"/></svg>
-     main.ts
-     <span class="ctx-tag-close" onclick="this.closest('.ctx-tag').remove()">
-       <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
-     </span>
-   </div>
-   <div class="ctx-tag">
-     <svg viewBox="0 0 16 16"><path d="M4 4h8M4 8h6M4 11h4" stroke-linecap="round"/></svg>
-     routes/api.ts
-     <span class="ctx-tag-close" onclick="this.closest('.ctx-tag').remove()">
-       <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
-     </span>
-   </div>
    <div class="context-dropdown">
      <button class="ctx-add" id="contextAddBtn" title="Añadir archivos, selección o carpeta al contexto">+ Añadir contexto</button>
      <div class="context-menu" id="contextMenu">
@@ -1162,6 +1211,10 @@
          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6h12v6H2zm2-4h2v2H4zm3 0h2v2h-2zm3 0h2v2h-2z"/></svg>
          Adjuntar carpeta
        </button>
+       <div class="context-menu-divider"></div>
+       <button class="context-menu-item trim-action" onclick="trimContextAll()" title="Vaciar todo el contexto adjunto">Quitar todo</button>
+       <button class="context-menu-item trim-action" onclick="trimContextLarge()" title="Quitar archivos grandes del contexto">Quitar archivos grandes</button>
+       <button class="context-menu-item trim-action" onclick="trimContextLast()" title="Conservar solo el último adjunto">Solo el último</button>
      </div>
    </div>
  </div>

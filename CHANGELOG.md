@@ -6,6 +6,29 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.30] - 2026-06-28
+
+### Sprint 2 — Contexto inteligente lite + sesiones por rama
+- **contextBudget.ts, contextAttachments.ts, settings.ts, opencodeService.ts, chatViewProvider.ts, extension.ts, main.js, index.html, package.json**:
+  - Contador `~X tokens` en la barra de contexto con umbrales soft/hard configurables (`contextWarnTokens`, `contextHardWarnTokens`).
+  - Guard de presupuesto antes de enviar: aviso informativo (soft) o confirmación modal con opción de recortar (hard).
+  - Acciones de recorte: quitar todo, quitar archivos grandes (`contextTrimLargeKb`), dejar solo el último adjunto.
+  - Sesiones por rama Git (`sessionPerBranch`): clave `workspace::branch`, prompt al cambiar de rama, polling cada 4s.
+  - Tags de contexto opcionales `[CRÍTICO]` / `[REF]` (clic derecho en tag); prefijo incluido en el payload enviado al LLM.
+
+## [1.0.29] - 2026-06-28
+
+### Sprint 1 — Visibilidad y depuración
+- **logger.ts, opencodeService.ts, httpClient.ts, chatViewProvider.ts, extension.ts, main.js, index.html**:
+  - Output Channel **OpenCode Chat**: logs de envío (modo, modelo, agente, parts, ~tokens), errores HTTP, SSE (start/end/abort/reconnect) y failover.
+  - Failover visible: mensaje de sistema en chat, toast en el primer failover de la sesión, punto pulsante en la barra del modelo y estado `failover` mientras reintenta.
+  - Failover ya no inyecta markdown en la respuesta del asistente; usa mensajes `system` dedicados.
+
+## [1.0.28] - 2026-06-28
+
+### Corrección de Bugs — Adjuntos locales
+- **fileContext.ts, chatViewProvider.ts, opencodeService.ts**: archivos y carpetas adjuntos envían contenido inline, no rutas `file://`.
+
 ## [1.0.27] - 2026-06-28
 
 ### Mejoras de Interfaz — Identidad visual LM Studio

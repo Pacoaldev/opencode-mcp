@@ -5,7 +5,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { ContextAttachments } from './contextAttachments';
-import { contextLabel, partsToDisplayText } from './parts';
+import { estimateContextTokens, type ContextPriority } from './contextBudget';
+import { partsToDisplayText } from './parts';
 import { OpenCodeService } from './opencodeService';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
 import { PromptPart, Template } from './types';
@@ -29,12 +30,28 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly contextAttachments = new ContextAttachments();
     private selectedAgent = '';
     private lmStudioPromptShown = false;
+    private failoverToastShown = false;
+    private lastKnownBranch: string | undefined;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly service: OpenCodeService
     ) {
         service.onStream((update) => {
+            if (update.systemMessage) {
+                this.post({ type: 'system', text: update.systemMessage });
+            }
+            if (update.failover) {
+                const f = update.failover;
+                if (!this.failoverToastShown) {
+                    this.failoverToastShown = true;
+                    const toastMsg = f.keyRotationOnly
+                        ? `Failover: rotando API key (${f.fromLabel}). Reintentando…`
+                        : `Failover: ${f.fromLabel} → ${f.toLabel}. Reintentando…`;
+                    void vscode.window.showInformationMessage(toastMsg);
+                }
+            }
+
             if (update.done) {
                 if (update.error) {
                     this.post({ type: 'error', message: update.error });
@@ -66,7 +83,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 }
                 this.post({ type: 'status', state: 'idle' });
             } else {
-                this.post({ type: 'assistantStream', text: update.text, statusDetail: update.statusDetail });
+                if (update.text) {
+                    this.post({ type: 'assistantStream', text: update.text, statusDetail: update.statusDetail });
+                }
+                const failoverPhase =
+                    !!update.failover ||
+                    /failover|reiniciando|reintentando/i.test(update.statusDetail ?? '');
+                this.post({
+                    type: 'status',
+                    state: failoverPhase ? 'failover' : 'busy',
+                    detail: update.statusDetail,
+                });
             }
         });
 
@@ -147,6 +174,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     async refreshState(): Promise<void> {
+        await this.checkBranchChange();
         const settings = getOpenCodeSettings();
         this.selectedAgent = settings.defaultAgent;
         const localMode = {
@@ -218,9 +246,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                       models,
                       selectedAgent: this.selectedAgent,
                       selectedModel: this.service.getSelectedModel(),
-                      context: this.contextAttachments
-                          .getItems()
-                          .map((p) => contextLabel(p)),
+                      context: this.contextAttachments.getDisplayItems(),
+                      contextTokens: this.contextAttachments.estimateTokens(),
+                      contextWarnTokens: settings.contextWarnTokens,
+                      contextHardWarnTokens: settings.contextHardWarnTokens,
                       sessionId,
                       messages: parsedMessages,
                       quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
@@ -290,6 +319,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                  await this.handleRemoveContextMessage(message);
                  break;
              }
+             case 'trimContext': {
+                 await this.handleTrimContextMessage(message.action);
+                 break;
+             }
+             case 'contextTagMenu': {
+                 await this.handleContextTagMenuMessage(message.index);
+                 break;
+             }
              case 'quickAction': {
                  await this.handleQuickActionMessage(message);
                  break;
@@ -346,10 +383,161 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
      notifyContextChanged(): void {
+         const settings = getOpenCodeSettings();
          this.post({
              type: 'context',
-             items: this.contextAttachments.getItems().map((p) => contextLabel(p)),
+             items: this.contextAttachments.getDisplayItems(),
+             estimatedTokens: this.contextAttachments.estimateTokens(),
+             warnTokens: settings.contextWarnTokens,
+             hardWarnTokens: settings.contextHardWarnTokens,
          });
+     }
+
+     /** Sprint 2: detect git branch switches and offer branch-scoped sessions. */
+     async checkBranchChange(): Promise<void> {
+         const settings = getOpenCodeSettings();
+         if (!settings.sessionPerBranch) {
+             return;
+         }
+         const cwd = getWorkspaceDirectory();
+         if (!cwd) {
+             return;
+         }
+         try {
+             if (!(await gitProvider.isGitRepo(cwd))) {
+                 return;
+             }
+             const branch = await gitProvider.getCurrentBranch(cwd);
+             if (this.lastKnownBranch === undefined) {
+                 this.lastKnownBranch = branch;
+                 return;
+             }
+             if (branch === this.lastKnownBranch) {
+                 return;
+             }
+             const previous = this.lastKnownBranch;
+             this.lastKnownBranch = branch;
+             const choice = await vscode.window.showInformationMessage(
+                 `Rama Git: \`${previous}\` → \`${branch}\`. ¿Qué sesión de chat quieres usar?`,
+                 'Nueva sesión para esta rama',
+                 'Mantener sesión actual'
+             );
+             if (choice === 'Nueva sesión para esta rama') {
+                 await this.service.newSession();
+                 await this.refreshState();
+                 this.post({ type: 'system', text: `Nueva sesión para rama \`${branch}\`.` });
+             } else {
+                 await this.service.bindCurrentSessionToBranch();
+                 this.post({
+                     type: 'system',
+                     text: `Sesión actual vinculada también a la rama \`${branch}\`.`,
+                 });
+             }
+         } catch {
+             // ponytail: no git or transient error — skip
+         }
+     }
+
+     private async runTrimContextMenu(): Promise<void> {
+         const settings = getOpenCodeSettings();
+         const choice = await vscode.window.showQuickPick(
+             [
+                 { label: 'Quitar todo el contexto', action: 'all' },
+                 {
+                     label: `Quitar archivos > ${settings.contextTrimLargeKb} KB`,
+                     action: 'large',
+                 },
+                 { label: 'Dejar solo el último archivo', action: 'last' },
+             ],
+             { placeHolder: 'Recortar contexto adjunto' }
+         );
+         if (!choice) {
+             return;
+         }
+         await this.handleTrimContextMessage(choice.action);
+     }
+
+     private async handleTrimContextMessage(action: string): Promise<void> {
+         if (action === 'menu') {
+             await this.runTrimContextMenu();
+             return;
+         }
+         const settings = getOpenCodeSettings();
+         switch (action) {
+             case 'all':
+                 this.contextAttachments.trimAll();
+                 this.post({ type: 'system', text: 'Contexto adjunto vaciado.' });
+                 break;
+             case 'large': {
+                 const removed = this.contextAttachments.trimLarge(settings.contextTrimLargeKb * 1024);
+                 this.post({
+                     type: 'system',
+                     text:
+                         removed > 0
+                             ? `Eliminados ${removed} adjunto(s) > ${settings.contextTrimLargeKb} KB.`
+                             : `Ningún adjunto superaba ${settings.contextTrimLargeKb} KB.`,
+                 });
+                 break;
+             }
+             case 'last':
+                 this.contextAttachments.trimKeepLast();
+                 this.post({ type: 'system', text: 'Solo se conserva el último adjunto de contexto.' });
+                 break;
+             default:
+                 return;
+         }
+         this.notifyContextChanged();
+     }
+
+     private async handleContextTagMenuMessage(index: number): Promise<void> {
+         if (typeof index !== 'number') {
+             return;
+         }
+         const picked = await vscode.window.showQuickPick(
+             [
+                 { label: 'Sin etiqueta', priority: undefined as ContextPriority | undefined },
+                 { label: '[CRÍTICO] — priorizar en la respuesta', priority: 'critical' as ContextPriority },
+                 { label: '[REF] — referencia secundaria', priority: 'ref' as ContextPriority },
+             ],
+             { placeHolder: 'Etiqueta de contexto' }
+         );
+         if (!picked) {
+             return;
+         }
+         this.contextAttachments.setPriority(index, picked.priority);
+         this.notifyContextChanged();
+     }
+
+     private async guardContextBudget(
+         text: string,
+         contextParts: readonly PromptPart[],
+         attachments: PromptPart[]
+     ): Promise<boolean> {
+         const settings = getOpenCodeSettings();
+         const estimated = estimateContextTokens(text, contextParts, attachments);
+         if (estimated >= settings.contextHardWarnTokens) {
+             const choice = await vscode.window.showWarningMessage(
+                 `Contexto estimado ~${estimated.toLocaleString()} tokens (límite ${settings.contextHardWarnTokens.toLocaleString()}).`,
+                 { modal: true },
+                 'Recortar',
+                 'Enviar igual',
+                 'Cancelar'
+             );
+             if (!choice || choice === 'Cancelar') {
+                 return false;
+             }
+             if (choice === 'Recortar') {
+                 await this.runTrimContextMenu();
+                 return false;
+             }
+             return true;
+         }
+         if (estimated >= settings.contextWarnTokens) {
+             void vscode.window.showInformationMessage(
+                 `Contexto estimado ~${estimated.toLocaleString()} tokens. Considera recortar adjuntos si la respuesta se degrada.`
+             );
+         }
+         return true;
      }
 
      private async handleReadyMessage(): Promise<void> {
@@ -398,6 +586,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
          const agent = message.agent || this.selectedAgent || undefined;
          const model = message.model || undefined;
          const contextParts = [...this.contextAttachments.getItems()];
+         const ok = await this.guardContextBudget(text || '', contextParts, attachments);
+         if (!ok) {
+             return;
+         }
          this.contextAttachments.clear();
          this.post({ type: 'status', state: 'busy' });
          this.post({
@@ -434,6 +626,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       private async handleNewSessionMessage(): Promise<void> {
           try {
+              this.failoverToastShown = false;
               await this.service.newSession();
               await this.refreshState();
               this.post({ type: 'system', text: 'Nueva sesión creada.' });
@@ -451,6 +644,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           );
          if (choice === 'Limpiar') {
              try {
+                 this.failoverToastShown = false;
                  await this.service.newSession();
                  await this.refreshState();
                  this.post({ type: 'chatCleared' });
@@ -629,6 +823,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           const agent = this.selectedAgent || undefined;
           const model = message.model || undefined;
           const contextParts = [...this.contextAttachments.getItems()];
+          const ok = await this.guardContextBudget(text || '', contextParts, []);
+          if (!ok) {
+              return;
+          }
           this.contextAttachments.clear();
           this.post({ type: 'status', state: 'busy' });
           this.post({

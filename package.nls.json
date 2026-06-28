@@ -21,5 +21,9 @@
   "view.title": "Chat",
   "view.container.title": "OpenCode",
   "config.localModeEnabled.desc": "Usa LM Studio en modo local en lugar de OpenCode (requiere que LM Studio esté corriendo).",
-  "config.localModeUrl.desc": "URL base de la instancia de LM Studio (por ejemplo, http://127.0.0.1:1234)."
+  "config.localModeUrl.desc": "URL base de la instancia de LM Studio (por ejemplo, http://127.0.0.1:1234).",
+  "config.contextWarnTokens.desc": "Soft threshold for estimated context tokens; shows a non-blocking warning.",
+  "config.contextHardWarnTokens.desc": "Hard threshold for estimated context tokens; prompts to trim or confirm before send.",
+  "config.contextTrimLargeKb.desc": "Size in KB for the \"Remove large files\" context trim action.",
+  "config.sessionPerBranch.desc": "Store separate chat sessions per Git branch within the same workspace."
 }

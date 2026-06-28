@@ -1,4 +1,5 @@
 import type { Agent, PromptPart, ServerEvent, Session, SessionMessage } from './types';
+import { logHttpError, sanitizeUrl, truncate } from './logger';
 
 export interface HttpClientOptions {
     baseUrl: string;
@@ -40,6 +41,8 @@ export class HttpOpenCodeClient {
         });
         if (!response.ok) {
             const text = await response.text().catch(() => '');
+            const reqUrl = sanitizeUrl(this.url(path));
+            logHttpError(method, reqUrl, response.status, text);
             throw new Error(
                 `OpenCode ${method} ${path}: ${response.status} ${text}`.trim()
             );
@@ -162,6 +165,7 @@ export class HttpOpenCodeClient {
             signal,
         });
         if (!response.ok || !response.body) {
+            logHttpError('GET', sanitizeUrl(url), response.status, 'SSE stream unavailable');
             throw new Error(`SSE /event: ${response.status}`);
         }
 

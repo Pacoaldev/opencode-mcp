@@ -21,5 +21,9 @@
   "view.title": "Chat",
   "view.container.title": "OpenCode",
   "config.localModeEnabled.desc": "Activar modo local para enviar todas las peticiones a LM Studio (requiere que LM Studio esté corriendo).",
-  "config.localModeUrl.desc": "URL base de la instancia de LM Studio (por ejemplo, http://127.0.0.1:1234)."
+  "config.localModeUrl.desc": "URL base de la instancia de LM Studio (por ejemplo, http://127.0.0.1:1234).",
+  "config.contextWarnTokens.desc": "Umbral soft de tokens estimados en contexto; muestra aviso informativo.",
+  "config.contextHardWarnTokens.desc": "Umbral hard de tokens estimados; pide confirmación o recorte antes de enviar.",
+  "config.contextTrimLargeKb.desc": "Tamaño en KB para la acción 'Quitar archivos grandes' del recorte de contexto.",
+  "config.sessionPerBranch.desc": "Guardar sesiones de chat separadas por rama Git dentro del mismo workspace."
 }
