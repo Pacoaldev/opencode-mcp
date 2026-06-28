@@ -30,7 +30,7 @@ Esta extensión para VS Code / Antigravity es un **panel lateral de chat** conec
 - **Mejoras de Interfaz**: Botones de contexto dedicados, dropdowns independientes para Modelo, Agente y Modo (filtrando agentes internos), selecciones robustas por ID, panel de costos con cierre explícito, acceso directo a configuración de la extensión y feedback visual inmediato.
 - **Plantillas de prompts inteligentes**: guarda e inserta prompts frecuentes como plantillas con nombre y contenido, accesibles mediante comando o escribir `/` en el chat.
 - **Estimación de tokens y costo antes de enviar**: mientras el usuario escribe, se muestra en tiempo real la aproximación de tokens de entrada y costo basado en el modelo seleccionado.
-- **Modo local con LM Studio**: con `opencode.localModeEnabled` activo, todas las peticiones van directo a LM Studio (sin pasar por OpenCode). La barra del chat muestra **`LM Studio · modelo`** con indicador verde cuando está conectado. El desplegable lista los modelos cargados en LM Studio. Si LM Studio no responde, la extensión **bloquea el envío** con un error claro (sin fallback silencioso a la nube). Al detectar LM Studio con el modo local desactivado, ofrece activarlo automáticamente.
+- **Modo local con LM Studio**: con `opencode.localModeEnabled` activo, todas las peticiones van directo a LM Studio (sin pasar por OpenCode). La interfaz cambia a **identidad visual LM Studio**: acentos **naranjas** (estilo Claude), textos `LM Studio` en topbar, bienvenida y mensajes del asistente; el logo de la extensión no cambia. La barra del chat muestra **`LM Studio · modelo`** con indicador naranja cuando está conectado. El desplegable lista los modelos cargados en LM Studio. Si LM Studio no responde, la extensión **bloquea el envío** con un error claro (sin fallback silencioso a la nube). Al detectar LM Studio con el modo local desactivado, ofrece activarlo automáticamente.
 - **Imágenes en el chat (Ctrl+V y adjuntos)**: las capturas pegadas o adjuntadas se codifican en Base64 y se envían en formato multimodal OpenAI (`image_url`) a LM Studio u OpenCode. Requiere un **modelo con visión** cargado en LM Studio (p. ej. LLaVA, Qwen2-VL); modelos solo texto como Gemma no analizan imágenes.
 - **Corrección de cálculo de costos y prevención de desbordamiento de pila**: límites de profundidad y detección de referencias circulares en cálculos de tamaño de carpeta y conteo de archivos.
 - **Mejores gestiones de errores en comandos git y failover**: muestra errores reales al usuario y maneja de forma asíncrona el failover, creando archivos de auth si faltan.
@@ -165,7 +165,9 @@ Comportamiento con el modo local activo:
 
 | Aspecto | Comportamiento |
 |---------|----------------|
-| Barra del chat | Muestra `LM Studio · nombre-del-modelo` con punto verde si está conectado |
+| Apariencia del chat | Tema **naranja** (acentos, tags, avatares, botones); textos **LM Studio** en topbar, bienvenida y respuestas del asistente |
+| Logo | Mismo logo de la extensión en ambos modos (OpenCode y LM Studio) |
+| Barra del chat | Muestra `LM Studio · nombre-del-modelo` con punto naranja si está conectado |
 | Modelos en el desplegable | Solo modelos expuestos por LM Studio (`/v1/models`) |
 | LM Studio apagado | Error claro al enviar; **no** se redirige silenciosamente a OpenCode |
 | LM Studio detectado sin modo local | Aviso con botón **Activar modo local** |
@@ -268,11 +270,12 @@ Para contribuir al desarrollo de la extensión:
 - **Error de conexión (Timeout):** Asegúrate de que el puerto de `opencode.serverPort` esté libre.
 - **Error de autenticación:** Ingresa la contraseña en `opencode.serverPassword` si tu servidor la requiere.
 - **Bloqueo por permisos:** Activa `opencode.autoApprovePermissions` o aprueba manualmente si el chat se cuelga.
-- **Sigo viendo modelos cloud (p. ej. kimi) en lugar de LM Studio:** Activa `opencode.localModeEnabled` en Settings (pestaña User si usas varios proyectos), instala la versión actual del VSIX y recarga la ventana. Debe aparecer `LM Studio · ...` en la barra del chat.
+- **Sigo viendo modelos cloud (p. ej. kimi) en lugar de LM Studio:** Activa `opencode.localModeEnabled` en Settings (pestaña User si usas varios proyectos), instala la versión actual del VSIX y recarga la ventana. Debe aparecer `LM Studio · ...` en la barra del chat y el tema naranja.
+- **Sigo viendo verde y textos `opencode` con LM Studio corriendo:** El modo local no está activo (`opencode.localModeEnabled`) o la extensión instalada es anterior a **v1.0.27**. Reinstala el VSIX compilado y recarga la ventana; el tema naranja solo aplica con el modo local activado.
 - **LM Studio activo pero el chat responde como modelo en la nube:** El modo local no está activo en ese workspace o la extensión instalada es una versión anterior sin estos fixes.
 - **Modo local activo pero error al enviar:** Comprueba que el servidor local de LM Studio esté arrancado y que `opencode.localModeUrl` coincida con la URL mostrada en LM Studio (p. ej. `:5555`).
 - **La IA no ve imágenes pegadas:** Confirma que el adjunto muestra miniatura en la barra de contexto y que tienes un **modelo con visión** cargado en LM Studio; modelos solo texto ignoran imágenes.
-- **Reload Window no aplica cambios:** Reinstala el `.vsix` compilado o usa **F5** (Run Extension) en el proyecto de la extensión.
+- **Reload Window no aplica cambios:** Reinstala el `.vsix` compilado (p. ej. `opencode-mcp-vscode-1.0.27.vsix`); `Reload Window` carga la extensión instalada, no el código fuente del repo. Tras instalar, recarga la ventana una vez más.
 
 ## Licencia
 

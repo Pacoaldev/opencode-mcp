@@ -97,6 +97,10 @@
 
   applyI18n();
 
+  if (typeof window.__localModeEnabled === 'boolean') {
+    localModeEnabled = window.__localModeEnabled;
+  }
+
   function getBranding() {
     return localModeEnabled ? BRANDING.lmstudio : BRANDING.opencode;
   }
@@ -124,6 +128,8 @@
 
     updateTopbarDisplay();
   }
+
+  applyBranding();
 
   function setStatus(state, detail) {
     if (state === 'busy') {

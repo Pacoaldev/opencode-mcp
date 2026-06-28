@@ -6,6 +6,17 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.27] - 2026-06-28
+
+### Mejoras de Interfaz — Identidad visual LM Studio
+- **index.html, main.js, chatViewProvider.ts, extension.ts**:
+  - Con `opencode.localModeEnabled` activo, el chat adopta un **tema naranja** (acento tipo Claude) en lugar del verde de OpenCode.
+  - Textos de marca actualizados automáticamente: topbar, pantalla de bienvenida, rol del asistente (`LM Studio` / avatar `LS`) y título del webview.
+  - El **logo de la extensión se mantiene igual** en ambos modos; solo cambian colores y textos.
+  - Branding aplicado **desde el servidor** al cargar el HTML (sin esperar al mensaje `init` del webview).
+  - Recarga del webview al cambiar `opencode.localModeEnabled` o `opencode.localModeUrl` en Settings.
+  - Cache-bust de `main.js` por versión de la extensión para evitar JS en caché tras actualizar el VSIX.
+
 ## [1.0.26] - 2026-06-28
 
 ### Documentación

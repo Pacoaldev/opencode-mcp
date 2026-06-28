@@ -907,6 +907,24 @@ if (successCount > 0) {
        }
 
        private getHtml(webview: vscode.Webview): string {
+        const settings = getOpenCodeSettings();
+        const lmStudio = settings.localModeEnabled;
+        const isEnglish = !vscode.env.language.startsWith('es');
+        const branding = lmStudio
+            ? {
+                  bodyClass: 'theme-lmstudio',
+                  logoText: 'LM Studio',
+                  pageTitle: 'LM Studio',
+                  welcomeTitle: isEnglish ? 'LM Studio ready' : 'LM Studio listo',
+                  typingAvatar: 'LS',
+              }
+            : {
+                  bodyClass: '',
+                  logoText: 'opencode',
+                  pageTitle: 'OpenCode',
+                  welcomeTitle: isEnglish ? 'OpenCode ready' : 'OpenCode listo',
+                  typingAvatar: 'OC',
+              };
         const htmlPath = path.join(
             this.context.extensionUri.fsPath,
             'resources',
@@ -932,15 +950,33 @@ if (successCount > 0) {
             .asWebviewUri(vscode.Uri.file(logoPath))
             .toString();
         const nonce = getNonce();
+        const version = this.context.extension.packageJSON.version ?? '0';
+        const scriptUriWithCache = `${scriptUri}?v=${encodeURIComponent(version)}`;
 
         html = html
             .replaceAll('{{cspSource}}', webview.cspSource)
             .replaceAll('{{nonce}}', nonce)
-            .replaceAll('{{scriptUri}}', scriptUri)
+            .replaceAll('{{scriptUri}}', scriptUriWithCache)
             .replaceAll('{{logoUri}}', logoUri)
-            .replace('</head>', `<script nonce="${nonce}">window.vscodeLang = "${vscode.env.language}";</script></head>`);
+            .replaceAll('{{bodyClass}}', branding.bodyClass)
+            .replaceAll('{{pageTitle}}', branding.pageTitle)
+            .replaceAll('{{logoText}}', branding.logoText)
+            .replaceAll('{{welcomeTitle}}', branding.welcomeTitle)
+            .replaceAll('{{typingAvatar}}', branding.typingAvatar)
+            .replace(
+                '</head>',
+                `<script nonce="${nonce}">window.vscodeLang="${vscode.env.language}";window.__localModeEnabled=${lmStudio};</script></head>`
+            );
 
         return html;
+    }
+
+    reloadWebview(): void {
+        if (!this.view) {
+            return;
+        }
+        this.view.webview.html = this.getHtml(this.view.webview);
+        void this.refreshState();
     }
 }
 

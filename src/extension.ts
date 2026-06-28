@@ -144,6 +144,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
+            if (
+                e.affectsConfiguration('opencode.localModeEnabled') ||
+                e.affectsConfiguration('opencode.localModeUrl')
+            ) {
+                chatProvider?.reloadWebview();
+                return;
+            }
             if (e.affectsConfiguration('opencode')) {
                 void service?.reconnect().then(() => chatProvider?.refreshState());
             }
