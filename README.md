@@ -93,9 +93,10 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
-<summary><strong>v1.0.31</strong> — Tool Calling nativo para LM Studio</summary>
+<summary><strong>v1.0.31</strong> — Tool Calling nativo & Persistencia de Sesiones para LM Studio</summary>
 
-- Ahora la integración local (LM Studio) es capaz de explorar tu código fuente de forma autónoma. Se han implementado herramientas (`list_directory` y `read_file`) que se envían directamente al modelo, permitiendo que lea archivos de tu workspace sin necesidad de adjuntarlos manualmente a través de la interfaz. ¡Asegúrate de usar modelos que soporten *Function Calling*!
+- Ahora la integración local (LM Studio) es capaz de explorar tu código fuente de forma autónoma con herramientas (`list_directory` y `read_file`).
+- **Persistencia de Sesiones**: Las conversaciones de LM Studio ahora se guardan localmente en VS Code. Puedes cerrar el editor o cambiar de proyecto y tu historial seguirá ahí, permitiendo continuar la conversación con el contexto intacto.
 </details>
 
 <details>

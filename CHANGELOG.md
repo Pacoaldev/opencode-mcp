@@ -13,6 +13,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - La IA ahora tiene autonomía para usar las herramientas `list_directory` y `read_file` y explorar el código fuente directamente.
   - Ejecución de herramientas desde el cliente de VS Code para el modo LM Studio, sin requerir un backend MCP.
 
+### Persistencia de Historial en Modo Local
+- **localSessionManager.ts, opencodeService.ts**: Implementada persistencia de sesiones locales para LM Studio.
+  - Al usar LM Studio, las conversaciones ahora se guardan localmente utilizando el almacenamiento global seguro de VS Code (`globalStorageUri`).
+  - El panel muestra el historial y permite reanudar conversaciones previas en el modo local, recordando todo el contexto entre reinicios del editor o cambios de proyecto.
+
 ## [1.0.30] - 2026-06-28
 
 ### Sprint 2 — Contexto inteligente lite + sesiones por rama
