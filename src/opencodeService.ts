@@ -570,6 +570,37 @@ export class OpenCodeService implements vscode.Disposable {
         });
     }
 
+    private async executeLocalTool(name: string, argsString: string): Promise<string> {
+        try {
+            const args = JSON.parse(argsString || '{}');
+            const cwd = getWorkspaceDirectory();
+            if (!cwd) {
+                return 'Error: No hay un espacio de trabajo abierto';
+            }
+            if (name === 'list_directory') {
+                const target = typeof args.path === 'string' && args.path.trim() ? path.resolve(cwd, args.path) : cwd;
+                const entries = await fs.promises.readdir(target, { withFileTypes: true });
+                const list = entries.map(e => `${e.isDirectory() ? '[DIR] ' : '[FILE]'} ${e.name}`).join('\n');
+                return list || '(Directorio vacío)';
+            }
+            if (name === 'read_file') {
+                if (typeof args.path !== 'string') {
+                    return 'Error: path debe ser un string';
+                }
+                const target = path.resolve(cwd, args.path);
+                const stat = await fs.promises.stat(target);
+                if (stat.size > 1024 * 1024) {
+                    return `Error: Archivo demasiado grande (${stat.size} bytes). Límite 1MB.`;
+                }
+                const content = await fs.promises.readFile(target, 'utf8');
+                return content;
+            }
+            return `Error: Herramienta desconocida ${name}`;
+        } catch (err: any) {
+            return `Error ejecutando herramienta: ${err.message}`;
+        }
+    }
+
     private async sendPromptLocal(
         text: string,
         contextParts: PromptPart[],
@@ -623,55 +654,146 @@ export class OpenCodeService implements vscode.Disposable {
 
             const lmModel =
                 model?.startsWith('lmstudio::') ? this.resolveLMStudioModel(model) : undefined;
-            const requestBody: Record<string, unknown> = {
-                messages: [{ role: 'user', content: contentPayload }],
-                stream: true,
-            };
-            if (lmModel) {
-                requestBody.model = lmModel;
-            }
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-            });
-
-            if (!response.ok || !response.body) {
-                const errBody = await response.text().catch(() => '');
-                logHttpError('POST', url, response.status, errBody);
-                throw new Error(`LM Studio ${response.status}: ${errBody || 'error'}`);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() ?? '';
-
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-
-                    try {
-                        const chunk = JSON.parse(data);
-                        const content = chunk.choices?.[0]?.delta?.content;
-                        if (content) {
-                            const prev = this.activeStream.get(sessionId) ?? '';
-                            const next = prev + content;
-                            this.activeStream.set(sessionId, next);
-                            this.emitStream({ sessionId, text: next, done: false, statusDetail: 'Generando...' });
+            
+            const messages: any[] = [{ role: 'user', content: contentPayload }];
+            const tools = [
+                {
+                    type: "function",
+                    function: {
+                        name: "list_directory",
+                        description: "Lista los archivos y carpetas de un directorio en el espacio de trabajo.",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                path: { type: "string", description: "Ruta relativa o absoluta del directorio a explorar. Vacío para la raíz del proyecto." }
+                            }
                         }
-                    } catch {
-                        // ponytail: ignorar líneas mal formadas, LM Studio a veces manda basura
                     }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "read_file",
+                        description: "Lee el contenido de un archivo de código o texto del espacio de trabajo.",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                path: { type: "string", description: "Ruta relativa o absoluta del archivo a leer." }
+                            },
+                            required: ["path"]
+                        }
+                    }
+                }
+            ];
+
+            let shouldContinue = true;
+            let fullAssistantResponse = '';
+
+            while (shouldContinue) {
+                shouldContinue = false;
+                const requestBody: Record<string, unknown> = {
+                    messages,
+                    stream: true,
+                    tools,
+                };
+                if (lmModel) {
+                    requestBody.model = lmModel;
+                }
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok || !response.body) {
+                    const errBody = await response.text().catch(() => '');
+                    logHttpError('POST', url, response.status, errBody);
+                    throw new Error(`LM Studio ${response.status}: ${errBody || 'error'}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                let currentToolCalls: { id: string; type: 'function'; function: { name: string; arguments: string } }[] = [];
+                let hasToolCalls = false;
+                let deltaTextResponse = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() ?? '';
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const data = line.slice(6).trim();
+                        if (data === '[DONE]') continue;
+
+                        try {
+                            const chunk = JSON.parse(data);
+                            const delta = chunk.choices?.[0]?.delta;
+                            if (!delta) continue;
+
+                            if (delta.content) {
+                                fullAssistantResponse += delta.content;
+                                deltaTextResponse += delta.content;
+                                const prev = this.activeStream.get(sessionId) ?? '';
+                                const next = prev + delta.content;
+                                this.activeStream.set(sessionId, next);
+                                this.emitStream({ sessionId, text: next, done: false, statusDetail: 'Generando...' });
+                            }
+
+                            if (delta.tool_calls) {
+                                hasToolCalls = true;
+                                for (const tc of delta.tool_calls) {
+                                    if (tc.id) {
+                                        currentToolCalls[tc.index] = {
+                                            id: tc.id,
+                                            type: 'function',
+                                            function: { name: tc.function?.name ?? '', arguments: tc.function?.arguments ?? '' }
+                                        };
+                                    } else {
+                                        if (currentToolCalls[tc.index] && tc.function?.arguments) {
+                                            currentToolCalls[tc.index].function.arguments += tc.function.arguments;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch {
+                            // ignorar basura
+                        }
+                    }
+                }
+
+                if (hasToolCalls && currentToolCalls.length > 0) {
+                    currentToolCalls = currentToolCalls.filter(Boolean);
+                    
+                    messages.push({
+                        role: 'assistant',
+                        content: deltaTextResponse || null,
+                        tool_calls: currentToolCalls
+                    });
+
+                    for (const tc of currentToolCalls) {
+                        this.emitStream({ 
+                            sessionId, 
+                            text: this.activeStream.get(sessionId) ?? '', 
+                            done: false, 
+                            statusDetail: `Ejecutando: ${tc.function.name}...` 
+                        });
+                        const toolResult = await this.executeLocalTool(tc.function.name, tc.function.arguments);
+                        messages.push({
+                            role: 'tool',
+                            tool_call_id: tc.id,
+                            name: tc.function.name,
+                            content: toolResult
+                        });
+                    }
+                    shouldContinue = true;
                 }
             }
 
