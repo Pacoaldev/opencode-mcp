@@ -595,6 +595,16 @@ export class OpenCodeService implements vscode.Disposable {
                 const content = await fs.promises.readFile(target, 'utf8');
                 return content;
             }
+            if (name === 'write_file') {
+                if (typeof args.path !== 'string') return 'Error: path debe ser un string';
+                if (typeof args.content !== 'string') return 'Error: content debe ser un string';
+                const target = path.resolve(cwd, args.path);
+                
+                // Asegurar que el directorio existe
+                await fs.promises.mkdir(path.dirname(target), { recursive: true });
+                await fs.promises.writeFile(target, args.content, 'utf8');
+                return `Archivo guardado con éxito en: ${args.path}`;
+            }
             return `Error: Herramienta desconocida ${name}`;
         } catch (err: any) {
             return `Error ejecutando herramienta: ${err.message}`;
@@ -681,6 +691,21 @@ export class OpenCodeService implements vscode.Disposable {
                                 path: { type: "string", description: "Ruta relativa o absoluta del archivo a leer." }
                             },
                             required: ["path"]
+                        }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "write_file",
+                        description: "Escribe o sobreescribe un archivo en el espacio de trabajo con nuevo contenido. ¡Usa esta herramienta cuando el usuario te pida modificar o crear código!",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                path: { type: "string", description: "Ruta relativa o absoluta del archivo a escribir." },
+                                content: { type: "string", description: "El contenido completo que se escribirá en el archivo." }
+                            },
+                            required: ["path", "content"]
                         }
                     }
                 }
