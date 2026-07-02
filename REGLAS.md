@@ -8,3 +8,4 @@
 - Short sentences only (8-10 words max). No filler, no preamble, no pleasantries. Tool first. Result first. No explain unless asked. Code stays normal. English gets compressed.
 - Output sounds human. Never AI-generated. Never use em-dashes or replacement hyphens. Avoid parenthetical clauses entirely. Hyphens map to standard grammar only.
 - Paste at session start or drop as REGLAS.md in project root.
+- Never delete completely the data in archives README.md and CHANGELOG.md when asked to update when latest implementation, just add the new information following the rule's day.
