@@ -2,7 +2,7 @@
   "name": "opencode-mcp-vscode",
   "displayName": "OpenCode Chat Panel",
   "description": "%extension.description%",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "publisher": "Pacoaldev",
   "repository": {
     "type": "git",

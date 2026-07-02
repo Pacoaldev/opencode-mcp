@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.30-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.31-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -91,6 +91,12 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ---
 
 ## Novedades recientes
+
+<details open>
+<summary><strong>v1.0.31</strong> — Tool Calling nativo para LM Studio</summary>
+
+- Ahora la integración local (LM Studio) es capaz de explorar tu código fuente de forma autónoma. Se han implementado herramientas (`list_directory` y `read_file`) que se envían directamente al modelo, permitiendo que lea archivos de tu workspace sin necesidad de adjuntarlos manualmente a través de la interfaz. ¡Asegúrate de usar modelos que soporten *Function Calling*!
+</details>
 
 <details>
 <summary><strong>v1.0.30</strong> — Contexto inteligente lite + sesiones por rama</summary>

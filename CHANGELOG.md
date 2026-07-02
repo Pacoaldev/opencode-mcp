@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.31] - 2026-07-02
+
+### Soporte de Tool Calling para Modo Local
+- **opencodeService.ts**: Implementado soporte nativo para *Function Calling* en modo local (LM Studio).
+  - La IA ahora tiene autonomía para usar las herramientas `list_directory` y `read_file` y explorar el código fuente directamente.
+  - Ejecución de herramientas desde el cliente de VS Code para el modo LM Studio, sin requerir un backend MCP.
+
 ## [1.0.30] - 2026-06-28
 
 ### Sprint 2 — Contexto inteligente lite + sesiones por rama
