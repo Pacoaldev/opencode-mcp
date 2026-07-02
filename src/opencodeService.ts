@@ -283,16 +283,33 @@ export class OpenCodeService implements vscode.Disposable {
     }
 
     private async ensureSession(): Promise<string> {
-        if (!this.client) {
-            throw new Error('Cliente no inicializado');
-        }
-
+        const settings = getOpenCodeSettings();
         const storageKey = await this.getSessionStateKey();
         const existingId =
             this.sessionId ??
             OpenCodeService.extensionContext?.workspaceState.get<string>(storageKey);
+        
+        const title =
+            vscode.workspace.workspaceFolders?.[0]?.name ?? 'OpenCode VS Code';
 
-        if (existingId) {
+        if (settings.localModeEnabled && this.localSessionManager) {
+            if (existingId && existingId.startsWith('loc-')) {
+                const sessions = await this.localSessionManager.listSessions();
+                if (sessions.some(s => s.id === existingId)) {
+                    this.persistSessionId(existingId);
+                    return existingId;
+                }
+            }
+            const created = await this.localSessionManager.createSession(`${title} (Local)`);
+            this.persistSessionId(created.id);
+            return created.id;
+        }
+
+        if (!this.client) {
+            throw new Error('Cliente no inicializado');
+        }
+
+        if (existingId && !existingId.startsWith('loc-')) {
             const session = await this.client.getSession(existingId);
             if (session?.id) {
                 this.persistSessionId(existingId);
@@ -300,8 +317,6 @@ export class OpenCodeService implements vscode.Disposable {
             }
         }
 
-        const title =
-            vscode.workspace.workspaceFolders?.[0]?.name ?? 'OpenCode VS Code';
         const created = await this.client.createSession(`${title} (VS Code)`);
         this.persistSessionId(created.id);
         return created.id;
@@ -503,6 +518,7 @@ export class OpenCodeService implements vscode.Disposable {
                         'Inicia el servidor en LM Studio o desactiva opencode.localModeEnabled.'
                 );
             }
+            await this.ensureSession();
             return this.sendPromptLocal(resolvedText, normalizedContext, normalizedAttachments, model);
         }
 

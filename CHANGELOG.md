@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
-## [1.0.31] - 2026-07-02
+## [1.0.32] - 2026-07-02
 
 ### Soporte de Tool Calling para Modo Local
 - **opencodeService.ts**: Implementado soporte nativo para *Function Calling* en modo local (LM Studio).
