@@ -13,6 +13,7 @@ import { startOpencodeServer, type ManagedServer } from './serverProcess';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
 import type { Agent, ServerEvent, Session, SessionMessage } from './types';
 import { gitProvider } from './gitProvider';
+import { LocalSessionManager } from './localSessionManager';
 import {
     estimateTokensFromChars,
     logFailover,
@@ -59,6 +60,7 @@ export class OpenCodeService implements vscode.Disposable {
 
     private client: HttpOpenCodeClient | undefined;
     private managedServer: ManagedServer | undefined;
+    private localSessionManager: LocalSessionManager | undefined;
     private sessionId: string | undefined;
     private connectionState: ConnectionState = 'disconnected';
     private eventAbort: AbortController | undefined;
@@ -307,6 +309,7 @@ export class OpenCodeService implements vscode.Disposable {
 
     async initialize(context: vscode.ExtensionContext): Promise<void> {
         OpenCodeService.extensionContext = context;
+        this.localSessionManager = new LocalSessionManager(context);
         const storageKey = await this.getSessionStateKey();
         this.sessionId = context.workspaceState.get<string>(storageKey);
         try {
@@ -317,6 +320,16 @@ export class OpenCodeService implements vscode.Disposable {
     }
 
     async newSession(): Promise<string> {
+        const settings = getOpenCodeSettings();
+        const title =
+            vscode.workspace.workspaceFolders?.[0]?.name ?? 'OpenCode VS Code';
+
+        if (settings.localModeEnabled && this.localSessionManager) {
+            const session = await this.localSessionManager.createSession(`${title} (Local)`);
+            this.persistSessionId(session.id);
+            return session.id;
+        }
+
         if (!this.client) {
             await this.connect();
         }
@@ -324,8 +337,7 @@ export class OpenCodeService implements vscode.Disposable {
             throw new Error('Sin conexión');
         }
 
-        const title =
-            vscode.workspace.workspaceFolders?.[0]?.name ?? 'OpenCode VS Code';
+
         const created = await this.client.createSession(`${title} (VS Code)`);
         this.persistSessionId(created.id);
         return created.id;
@@ -350,6 +362,10 @@ export class OpenCodeService implements vscode.Disposable {
     }
 
     async listSessions(): Promise<Session[]> {
+        const settings = getOpenCodeSettings();
+        if (settings.localModeEnabled && this.localSessionManager) {
+            return this.localSessionManager.listSessions();
+        }
         if (!this.client) {
             return [];
         }
@@ -357,6 +373,10 @@ export class OpenCodeService implements vscode.Disposable {
     }
 
     async listMessages(sessionId: string): Promise<SessionMessage[]> {
+        const settings = getOpenCodeSettings();
+        if (settings.localModeEnabled && this.localSessionManager) {
+            return this.localSessionManager.listMessages(sessionId);
+        }
         if (!this.client) {
             return [];
         }
@@ -665,7 +685,21 @@ export class OpenCodeService implements vscode.Disposable {
             const lmModel =
                 model?.startsWith('lmstudio::') ? this.resolveLMStudioModel(model) : undefined;
             
-            const messages: any[] = [{ role: 'user', content: contentPayload }];
+            let pastMessages: SessionMessage[] = [];
+            if (this.localSessionManager) {
+                pastMessages = await this.localSessionManager.listMessages(sessionId);
+            }
+
+            const messages: any[] = [];
+            for (const m of pastMessages) {
+                const textContent = m.parts.map(p => p.type === 'text' ? p.text : '').join('\n');
+                messages.push({
+                    role: m.info.role === 'user' ? 'user' : 'assistant',
+                    content: textContent
+                });
+            }
+            messages.push({ role: 'user', content: contentPayload });
+
             const tools = [
                 {
                     type: "function",
@@ -820,6 +854,18 @@ export class OpenCodeService implements vscode.Disposable {
                     }
                     shouldContinue = true;
                 }
+            }
+
+            if (this.localSessionManager) {
+                const userSessionMessage: SessionMessage = {
+                    info: { id: `msg-${Date.now()}`, role: 'user' },
+                    parts: [{ type: 'text', text: userText }]
+                };
+                const assistantSessionMessage: SessionMessage = {
+                    info: { id: `msg-${Date.now()+1}`, role: 'assistant' },
+                    parts: [{ type: 'text', text: fullAssistantResponse }]
+                };
+                await this.localSessionManager.appendMessages(sessionId, [userSessionMessage, assistantSessionMessage]);
             }
 
             this.emitStream({
