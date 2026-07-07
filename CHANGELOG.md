@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
-## [1.0.33] - 2026-07-02
+## [1.0.34] - 2026-07-07
 
 ### Corrección de Bug — Sesiones y Historial
 - **localSessionManager.ts, opencodeService.ts**: Resuelto un problema que hacía que las sesiones locales se perdieran al cerrar el editor o cambiar de proyecto.
