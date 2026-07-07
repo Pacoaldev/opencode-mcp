@@ -39,6 +39,10 @@
       margin-right: var(--cost-panel-width);
     }
 
+    body.cost-panel-open .context-area {
+      margin-right: var(--cost-panel-width);
+    }
+
     body.cost-panel-open .input-area {
       margin-right: var(--cost-panel-width);
     }
@@ -459,6 +463,11 @@
   }
 
   /* ── TABS DE CONTEXTO ── */
+  .context-area {
+    position: relative;
+    flex-shrink: 0;
+  }
+
   .context-bar {
     display: flex;
     align-items: center;
@@ -548,6 +557,188 @@
   .ctx-tag.ctx-priority-ref {
     border-color: var(--border);
     opacity: 0.85;
+  }
+
+  .ctx-list-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--tag-bg);
+    border: 1px solid var(--accent-dim);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--tag-fg);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .ctx-list-btn:hover {
+    border-color: var(--accent);
+    background: rgba(122, 184, 255, 0.08);
+  }
+
+  .ctx-list-btn.open {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .context-list-panel {
+    display: none;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: calc(100% + 2px);
+    max-height: 280px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    z-index: 1001;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .context-list-panel.open {
+    display: flex;
+  }
+
+  .context-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .context-list-select-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text-pri);
+  }
+
+  .context-list-select-all input {
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .context-list-body {
+    overflow-y: auto;
+    max-height: 180px;
+    padding: 4px 0;
+  }
+
+  .context-list-empty {
+    padding: 16px 12px;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .context-list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-pri);
+    transition: background 0.12s;
+  }
+
+  .context-list-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .context-list-row input {
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+  }
+
+  .context-list-row-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .context-list-row-size {
+    flex-shrink: 0;
+    min-width: 52px;
+    text-align: right;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .context-list-row.ctx-priority-critical .context-list-row-label {
+    color: #f0a070;
+  }
+
+  .context-list-row.ctx-priority-ref .context-list-row-label {
+    opacity: 0.85;
+  }
+
+  .context-list-row-close {
+    cursor: pointer;
+    opacity: 0.45;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    flex-shrink: 0;
+    transition: opacity 0.12s;
+  }
+
+  .context-list-row-close:hover {
+    opacity: 1;
+    color: #f48771;
+  }
+
+  .context-list-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .context-list-action {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--text-pri);
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s;
+  }
+
+  .context-list-action:hover:not(:disabled) {
+    border-color: var(--accent-dim);
+    color: var(--tag-fg);
+  }
+
+  .context-list-action:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .context-list-action.danger:hover:not(:disabled) {
+    border-color: #9a4a3a;
+    color: #f48771;
   }
 
   .context-menu-divider {
@@ -1187,6 +1378,7 @@
 </div>
 
   <!-- BARRA DE CONTEXTO -->
+ <div class="context-area" id="contextArea">
  <div class="context-bar" id="contextBar">
    <div class="context-dropdown">
      <button class="ctx-add" id="contextAddBtn" title="Añadir archivos, selección o carpeta al contexto">+ Añadir contexto</button>
@@ -1212,11 +1404,32 @@
          Adjuntar carpeta
        </button>
        <div class="context-menu-divider"></div>
+       <button class="context-menu-item" onclick="openContextList()" title="Ver lista de archivos en contexto y quitar seleccionados">Ver archivos en contexto</button>
+       <div class="context-menu-divider"></div>
        <button class="context-menu-item trim-action" onclick="trimContextAll()" title="Vaciar todo el contexto adjunto">Quitar todo</button>
        <button class="context-menu-item trim-action" onclick="trimContextLarge()" title="Quitar archivos grandes del contexto">Quitar archivos grandes</button>
        <button class="context-menu-item trim-action" onclick="trimContextLast()" title="Conservar solo el último adjunto">Solo el último</button>
      </div>
    </div>
+   <button class="ctx-list-btn" id="contextListBtn" title="Ver y gestionar archivos en contexto" style="display:none">
+     Archivos (<span id="contextListCount">0</span>)
+   </button>
+ </div>
+ <div class="context-list-panel" id="contextListPanel" aria-hidden="true">
+   <div class="context-list-header">
+     <label class="context-list-select-all">
+       <input type="checkbox" id="contextSelectAll" />
+       Seleccionar todo
+     </label>
+     <span>Clic derecho en tag para [CRÍTICO] / [REF]</span>
+   </div>
+   <div class="context-list-body" id="contextListBody"></div>
+   <div class="context-list-footer">
+     <button class="context-list-action" id="contextRemoveSelectedBtn" disabled>Quitar seleccionados</button>
+     <button class="context-list-action danger" id="contextRemoveAllBtn">Quitar todo</button>
+     <button class="context-list-action" id="contextListCloseBtn">Cerrar</button>
+   </div>
+ </div>
  </div>
 
 <!-- MENSAJES -->

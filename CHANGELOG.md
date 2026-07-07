@@ -6,7 +6,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
-## [1.0.34] - 2026-07-07
+## [1.0.35] - 2026-07-07
+
+### Gestión de contexto en el panel de chat
+- **contextAttachments.ts, chatViewProvider.ts, main.js, index.html**:
+  - Panel desplegable **Archivos (N)** en la barra de contexto para ver la lista completa de adjuntos antes de enviar.
+  - Selección múltiple con checkboxes y acción **Quitar seleccionados** (eliminación por lotes vía `removeContextBatch`).
+  - Tamaño estimado por archivo en la lista (`<1 KB`, decimales hasta 99 KB, enteros a partir de 100 KB).
+  - Acceso también desde **+ Añadir contexto → Ver archivos en contexto**.
+  - Los tags horizontales con **×** individual y las acciones de recorte existentes se mantienen.
 
 ### Corrección de Bug — Sesiones y Historial
 - **localSessionManager.ts, opencodeService.ts**: Resuelto un problema que hacía que las sesiones locales se perdieran al cerrar el editor o cambiar de proyecto.

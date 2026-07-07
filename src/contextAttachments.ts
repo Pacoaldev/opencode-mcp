@@ -18,6 +18,7 @@ export interface ContextDisplayItem {
     label: string;
     index: number;
     priority?: ContextPriority;
+    sizeBytes: number;
 }
 
 export class ContextAttachments {
@@ -33,6 +34,7 @@ export class ContextAttachments {
             label: priorityLabelPrefix(item.priority) + contextLabel(item.part),
             index,
             priority: item.priority,
+            sizeBytes: partCharSize(item.part),
         }));
     }
 
@@ -79,6 +81,15 @@ export class ContextAttachments {
 
     removePart(index: number): void {
         if (index >= 0 && index < this.items.length) {
+            this.items.splice(index, 1);
+        }
+    }
+
+    removeParts(indices: number[]): void {
+        const unique = [...new Set(indices.filter((i) => i >= 0 && i < this.items.length))].sort(
+            (a, b) => b - a
+        );
+        for (const index of unique) {
             this.items.splice(index, 1);
         }
     }

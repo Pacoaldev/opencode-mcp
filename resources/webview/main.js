@@ -12,6 +12,15 @@
   const dropOverlay = document.getElementById('dropOverlay');
   const modePill = document.getElementById('modePill');
   const contextBar = document.getElementById('contextBar');
+  const contextArea = document.getElementById('contextArea');
+  const contextListBtn = document.getElementById('contextListBtn');
+  const contextListCount = document.getElementById('contextListCount');
+  const contextListPanel = document.getElementById('contextListPanel');
+  const contextListBody = document.getElementById('contextListBody');
+  const contextSelectAll = document.getElementById('contextSelectAll');
+  const contextRemoveSelectedBtn = document.getElementById('contextRemoveSelectedBtn');
+  const contextRemoveAllBtn = document.getElementById('contextRemoveAllBtn');
+  const contextListCloseBtn = document.getElementById('contextListCloseBtn');
   const stopBtn    = document.getElementById('stopBtn');
   const stopBtnSep = document.getElementById('stopBtnSep');
 
@@ -27,6 +36,8 @@
 
     let contextWarnTokens = 32000;
     let contextHardWarnTokens = 64000;
+    let currentContextItems = [];
+    let contextListOpen = false;
 
     let streamingNode = null;
     let streamingBodyNode = null;
@@ -518,7 +529,101 @@
     else if (est >= contextWarnTokens) badge.classList.add('warn');
   }
 
+  function closeContextListPanel() {
+    contextListOpen = false;
+    if (contextListPanel) {
+      contextListPanel.classList.remove('open');
+      contextListPanel.setAttribute('aria-hidden', 'true');
+    }
+    if (contextListBtn) contextListBtn.classList.remove('open');
+  }
+
+  function openContextListPanel() {
+    contextListOpen = true;
+    if (contextListPanel) {
+      contextListPanel.classList.add('open');
+      contextListPanel.setAttribute('aria-hidden', 'false');
+    }
+    if (contextListBtn) contextListBtn.classList.add('open');
+    renderContextListPanel(currentContextItems);
+  }
+
+  function toggleContextListPanel() {
+    if (contextListOpen) closeContextListPanel();
+    else openContextListPanel();
+  }
+
+  function updateContextListSelectionState() {
+    if (!contextListBody || !contextRemoveSelectedBtn || !contextSelectAll) return;
+    const boxes = contextListBody.querySelectorAll('.context-list-row-check');
+    const checked = [...boxes].filter((b) => b.checked);
+    contextRemoveSelectedBtn.disabled = checked.length === 0;
+    if (boxes.length === 0) {
+      contextSelectAll.checked = false;
+      contextSelectAll.indeterminate = false;
+      return;
+    }
+    contextSelectAll.checked = checked.length === boxes.length;
+    contextSelectAll.indeterminate = checked.length > 0 && checked.length < boxes.length;
+  }
+
+  function formatContextSize(bytes) {
+    const n = Number(bytes) || 0;
+    if (n < 1024) return '<1 KB';
+    const kb = n / 1024;
+    return kb < 100 ? `${kb.toFixed(1)} KB` : `${Math.round(kb)} KB`;
+  }
+
+  function renderContextListPanel(items) {
+    if (!contextListBody) return;
+    contextListBody.innerHTML = '';
+    if (!items || items.length === 0) {
+      contextListBody.innerHTML = '<div class="context-list-empty">No hay archivos en contexto</div>';
+      updateContextListSelectionState();
+      return;
+    }
+    items.forEach((item) => {
+      const label = typeof item === 'string' ? item : item.label;
+      const index = typeof item === 'string' ? undefined : item.index;
+      const priority = typeof item === 'string' ? undefined : item.priority;
+      const sizeLabel = typeof item === 'string' ? '' : formatContextSize(item.sizeBytes);
+      const row = document.createElement('div');
+      row.className = 'context-list-row';
+      if (priority === 'critical') row.classList.add('ctx-priority-critical');
+      else if (priority === 'ref') row.classList.add('ctx-priority-ref');
+      row.innerHTML = `
+        <input type="checkbox" class="context-list-row-check" data-index="${index ?? ''}" />
+        <span class="context-list-row-label" title="${escHtml(label)}">${escHtml(label)}</span>
+        ${sizeLabel ? `<span class="context-list-row-size">${escHtml(sizeLabel)}</span>` : ''}
+        <span class="context-list-row-close" title="Quitar del contexto">
+          <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
+        </span>
+      `;
+      const checkbox = row.querySelector('.context-list-row-check');
+      checkbox.addEventListener('change', updateContextListSelectionState);
+      row.querySelector('.context-list-row-close').onclick = (e) => {
+        e.stopPropagation();
+        if (index !== undefined) vscode.postMessage({ type: 'removeContext', index });
+      };
+      contextListBody.appendChild(row);
+    });
+    updateContextListSelectionState();
+  }
+
   function renderContextItems(items) {
+    currentContextItems = items || [];
+    const count = currentContextItems.length;
+    if (contextListBtn) {
+      contextListBtn.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (contextListCount) {
+      contextListCount.textContent = String(count);
+    }
+    if (count === 0) {
+      closeContextListPanel();
+    } else if (contextListOpen) {
+      renderContextListPanel(currentContextItems);
+    }
     const existingCtx = contextBar.querySelectorAll('.ctx-tag:not(.ctx-att)');
     existingCtx.forEach(el => el.remove());
     (items || []).forEach((item) => {
@@ -561,6 +666,11 @@
   window.trimContextLast = function () {
     vscode.postMessage({ type: 'trimContext', action: 'last' });
     closeContextMenu();
+  };
+
+  window.openContextList = function () {
+    closeContextMenu();
+    openContextListPanel();
   };
 
   function renderAttachments() {
@@ -817,12 +927,54 @@ if (gitDiffBtn) {
     });
   }
 
+  if (contextListBtn) {
+    contextListBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleContextListPanel();
+    });
+  }
+
+  if (contextSelectAll) {
+    contextSelectAll.addEventListener('change', () => {
+      if (!contextListBody) return;
+      const boxes = contextListBody.querySelectorAll('.context-list-row-check');
+      boxes.forEach((b) => { b.checked = contextSelectAll.checked; });
+      updateContextListSelectionState();
+    });
+  }
+
+  if (contextRemoveSelectedBtn) {
+    contextRemoveSelectedBtn.addEventListener('click', () => {
+      if (!contextListBody) return;
+      const indices = [...contextListBody.querySelectorAll('.context-list-row-check:checked')]
+        .map((el) => parseInt(el.dataset.index, 10))
+        .filter((n) => !Number.isNaN(n));
+      if (indices.length > 0) {
+        vscode.postMessage({ type: 'removeContextBatch', indices });
+      }
+    });
+  }
+
+  if (contextRemoveAllBtn) {
+    contextRemoveAllBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'trimContext', action: 'all' });
+      closeContextListPanel();
+    });
+  }
+
+  if (contextListCloseBtn) {
+    contextListCloseBtn.addEventListener('click', closeContextListPanel);
+  }
+
   // Cerrar el menú cuando se hace clic fuera
   document.addEventListener('click', (e) => {
     const contextDropdown = document.querySelector('.context-dropdown');
     const contextMenu = document.getElementById('contextMenu');
     if (contextDropdown && !contextDropdown.contains(e.target) && contextMenu) {
       contextMenu.classList.remove('show');
+    }
+    if (contextArea && contextListOpen && !contextArea.contains(e.target)) {
+      closeContextListPanel();
     }
   });
 

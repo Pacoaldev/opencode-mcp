@@ -319,6 +319,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                  await this.handleRemoveContextMessage(message);
                  break;
              }
+             case 'removeContextBatch': {
+                 await this.handleRemoveContextBatchMessage(message);
+                 break;
+             }
              case 'trimContext': {
                  await this.handleTrimContextMessage(message.action);
                  break;
@@ -811,6 +815,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
               this.contextAttachments.removePart(index);
               this.notifyContextChanged();
           }
+      }
+
+      private async handleRemoveContextBatchMessage(message: any): Promise<void> {
+          const indices = message.indices;
+          if (!Array.isArray(indices) || indices.length === 0) {
+              return;
+          }
+          const valid = indices.filter((i: unknown) => typeof i === 'number');
+          if (valid.length === 0) {
+              return;
+          }
+          this.contextAttachments.removeParts(valid);
+          this.notifyContextChanged();
       }
 
       private async handleQuickActionMessage(message: any): Promise<void> {

@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.34-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.35-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -72,6 +72,7 @@ Si `opencode.autoStartServer` está activo (por defecto), la extensión lanza `o
 | **Adjuntos** | Archivo actual, selección, archivos abiertos, carpetas — contenido **inline**, no rutas `file://` |
 | **Git** | Rama, cambios y últimos commits al contexto |
 | **Presupuesto** | Contador `~X tokens`, umbrales soft/hard y acciones de recorte en un clic |
+| **Lista de contexto** | Panel **Archivos (N)** con checkboxes, tamaño por archivo y quitar seleccionados |
 | **Prioridad** | Clic derecho en tag → `[CRÍTICO]` / `[REF]` (prefijo en el payload al LLM) |
 | **Imágenes** | Ctrl+V y adjuntos multimodal (requiere modelo con visión en LM Studio) |
 
@@ -93,6 +94,25 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.35</strong> — Panel de gestión de contexto</summary>
+
+- Botón **Archivos (N)** en la barra de contexto: lista desplegable con todos los adjuntos.
+- Checkboxes + **Quitar seleccionados** para eliminar varios archivos de una vez.
+- Tamaño estimado por archivo en KB en cada fila.
+- También accesible desde **+ Añadir contexto → Ver archivos en contexto**.
+
+</details>
+
+<details>
+<summary><strong>v1.0.34</strong> — Persistencia LM Studio, historial y tool calling</summary>
+
+- Persistencia de sesiones locales entre reinicios del editor.
+- Tool calling nativo en modo local (`list_directory`, `read_file`).
+- UI de historial con conteo de mensajes guardados.
+
+</details>
+
+<details>
 <summary><strong>v1.0.31</strong> — Tool Calling nativo & Persistencia de Sesiones para LM Studio</summary>
 
 - Ahora la integración local (LM Studio) es capaz de explorar tu código fuente de forma autónoma con herramientas (`list_directory` y `read_file`).
@@ -163,7 +183,7 @@ npm run package
 Luego:
 
 - **VS Code / Cursor:** `Ctrl+Shift+P` → **Extensions: Install from VSIX...**
-- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.30.vsix --force`
+- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.35.vsix --force`
 
 > **Importante:** *Reload Window* carga la extensión **instalada**, no el código fuente del repo. Tras instalar un VSIX nuevo, recarga la ventana una vez.
 
@@ -178,8 +198,11 @@ Luego:
 | Añadir todos los abiertos | — | OpenCode: Añadir archivos abiertos al contexto |
 | Estado Git | — | OpenCode: Añadir información de Git al contexto |
 | Adjuntar carpeta | — | Botón **+ Añadir contexto** en el chat |
+| Ver y quitar archivos | — | Botón **Archivos (N)** o menú **+ Añadir contexto** |
 
 También disponible desde el menú contextual del editor y del explorador.
+
+**Lista de contexto:** pulsa **Archivos (N)** para abrir el panel con todos los adjuntos, su tamaño en KB y checkboxes. Marca los que quieras eliminar y usa **Quitar seleccionados**. Cada fila también tiene **×** para quitar uno solo.
 
 **Presupuesto de tokens:** la barra de contexto muestra `~X tokens`. Al superar el umbral soft aparece un aviso; al superar el hard, un diálogo ofrece recortar o enviar igual. Clic en el badge o menú **+ Añadir contexto** → acciones de recorte.
 
