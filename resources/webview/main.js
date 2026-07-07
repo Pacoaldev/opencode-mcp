@@ -12,6 +12,9 @@
   const dropOverlay = document.getElementById('dropOverlay');
   const modePill = document.getElementById('modePill');
   const contextBar = document.getElementById('contextBar');
+  const contextBarScroll = document.getElementById('contextBarScroll');
+  const contextBarActions = document.getElementById('contextBarActions');
+  const ctxTokenBadge = document.getElementById('ctxTokenBadge');
   const contextArea = document.getElementById('contextArea');
   const contextListBtn = document.getElementById('contextListBtn');
   const contextListCount = document.getElementById('contextListCount');
@@ -513,20 +516,22 @@
   function updateContextTokenBadge(estimatedTokens, warnTokens, hardWarnTokens) {
     if (warnTokens !== undefined) contextWarnTokens = warnTokens;
     if (hardWarnTokens !== undefined) contextHardWarnTokens = hardWarnTokens;
-    let badge = document.getElementById('ctxTokenBadge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.id = 'ctxTokenBadge';
-      badge.className = 'ctx-token-badge';
-      badge.title = 'Clic para recortar contexto';
+    const badge = ctxTokenBadge;
+    if (!badge) return;
+    if (!badge.onclick) {
       badge.onclick = () => vscode.postMessage({ type: 'trimContext', action: 'menu' });
-      contextBar.appendChild(badge);
     }
     const est = estimatedTokens || 0;
     badge.textContent = `~${est.toLocaleString()} tokens`;
     badge.classList.remove('warn', 'hard');
     if (est >= contextHardWarnTokens) badge.classList.add('hard');
     else if (est >= contextWarnTokens) badge.classList.add('warn');
+  }
+
+  function getContextTagInsertPoint() {
+    const scroll = contextBarScroll || contextBar;
+    const dropdown = scroll.querySelector('.context-dropdown');
+    return { scroll, dropdown };
   }
 
   function closeContextListPanel() {
@@ -624,7 +629,8 @@
     } else if (contextListOpen) {
       renderContextListPanel(currentContextItems);
     }
-    const existingCtx = contextBar.querySelectorAll('.ctx-tag:not(.ctx-att)');
+    const scrollRoot = contextBarScroll || contextBar;
+    const existingCtx = scrollRoot.querySelectorAll('.ctx-tag:not(.ctx-att)');
     existingCtx.forEach(el => el.remove());
     (items || []).forEach((item) => {
       const label = typeof item === 'string' ? item : item.label;
@@ -649,9 +655,9 @@
         e.preventDefault();
         if (index !== undefined) vscode.postMessage({ type: 'contextTagMenu', index });
       });
-      const dropdown = contextBar.querySelector('.context-dropdown');
-      if (dropdown) contextBar.insertBefore(tag, dropdown);
-      else contextBar.appendChild(tag);
+      const { scroll, dropdown } = getContextTagInsertPoint();
+      if (dropdown) scroll.insertBefore(tag, dropdown);
+      else scroll.appendChild(tag);
     });
   }
 
@@ -674,7 +680,8 @@
   };
 
   function renderAttachments() {
-    const existingAtts = contextBar.querySelectorAll('.ctx-att');
+    const scrollRoot = contextBarScroll || contextBar;
+    const existingAtts = scrollRoot.querySelectorAll('.ctx-att');
     existingAtts.forEach(el => el.remove());
     
     attachments.forEach((att, index) => {
@@ -702,11 +709,11 @@
         renderAttachments();
       };
       
-      const dropdown = contextBar.querySelector('.context-dropdown');
+      const { scroll, dropdown } = getContextTagInsertPoint();
       if (dropdown) {
-          contextBar.insertBefore(tag, dropdown);
+          scroll.insertBefore(tag, dropdown);
       } else {
-          contextBar.appendChild(tag);
+          scroll.appendChild(tag);
       }
    });
    }

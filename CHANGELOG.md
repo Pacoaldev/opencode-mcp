@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.36] - 2026-07-07
+
+### Interfaz — Barra de contexto
+- **index.html, main.js**: Reorganizada la barra de contexto en zona con scroll (tags) y columna fija a la derecha (**Archivos (N)** + badge de tokens), siempre visible aunque haya muchos archivos.
+
 ## [1.0.35] - 2026-07-07
 
 ### Gestión de contexto en el panel de chat

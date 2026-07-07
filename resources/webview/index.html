@@ -470,18 +470,40 @@
 
   .context-bar {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 0 6px 12px;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
+    overflow: hidden;
     transition: margin-right 0.2s ease;
   }
 
-  .context-bar::-webkit-scrollbar { display: none; }
+  .context-bar-scroll {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-right: 4px;
+  }
+
+  .context-bar-scroll::-webkit-scrollbar { display: none; }
+
+  .context-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 0 12px 0 10px;
+    margin-left: 4px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-panel);
+    box-shadow: -10px 0 14px -8px rgba(0, 0, 0, 0.45);
+  }
 
   .ctx-tag {
     display: flex;
@@ -528,7 +550,6 @@
     border-radius: 4px;
     white-space: nowrap;
     cursor: pointer;
-    margin-left: auto;
     flex-shrink: 0;
     transition: color 0.15s, border-color 0.15s;
   }
@@ -1380,6 +1401,7 @@
   <!-- BARRA DE CONTEXTO -->
  <div class="context-area" id="contextArea">
  <div class="context-bar" id="contextBar">
+   <div class="context-bar-scroll" id="contextBarScroll">
    <div class="context-dropdown">
      <button class="ctx-add" id="contextAddBtn" title="Añadir archivos, selección o carpeta al contexto">+ Añadir contexto</button>
      <div class="context-menu" id="contextMenu">
@@ -1411,9 +1433,13 @@
        <button class="context-menu-item trim-action" onclick="trimContextLast()" title="Conservar solo el último adjunto">Solo el último</button>
      </div>
    </div>
+   </div>
+   <div class="context-bar-actions" id="contextBarActions">
    <button class="ctx-list-btn" id="contextListBtn" title="Ver y gestionar archivos en contexto" style="display:none">
      Archivos (<span id="contextListCount">0</span>)
    </button>
+   <span class="ctx-token-badge" id="ctxTokenBadge" title="Clic para recortar contexto">~0 tokens</span>
+   </div>
  </div>
  <div class="context-list-panel" id="contextListPanel" aria-hidden="true">
    <div class="context-list-header">
