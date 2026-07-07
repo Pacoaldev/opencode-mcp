@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.35-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.37-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -183,7 +183,7 @@ npm run package
 Luego:
 
 - **VS Code / Cursor:** `Ctrl+Shift+P` → **Extensions: Install from VSIX...**
-- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.35.vsix --force`
+- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.37.vsix --force`
 
 > **Importante:** *Reload Window* carga la extensión **instalada**, no el código fuente del repo. Tras instalar un VSIX nuevo, recarga la ventana una vez.
 

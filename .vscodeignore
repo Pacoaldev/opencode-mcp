@@ -1,13 +1,36 @@
+# IDE / dev
 .vscode/**
 .vscode-test/**
+**/.vscode-test.*
+*.code-workspace
+opencode-mcp.code-workspace
+
+# Source & tooling (runtime is out/extension.js)
 src/**
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map
 **/*.ts
-**/.vscode-test.*
+.yarnrc
+vsc-extension-quickstart.md
+.gitignore
+
+# Tests
+out/test/**
+
+# Dev docs & notes (not for end users)
+.atl/**
+comandos.md
+PROVIDERS.md
+REGLAS.md
+ROADMAP.md
+
+# README screenshots only
+resources/1.png
+resources/2.png
+resources/3.png
+resources/4.png
+
+# Secrets / local config
 node_modules/**
-config/apis.json
+config/**

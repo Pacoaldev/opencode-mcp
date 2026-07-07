@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.37] - 2026-07-07
+
+### Build — Empaquetado VSIX
+- **.vscodeignore**: Excluidos del `.vsix` archivos de desarrollo que no deben distribuirse (`.atl/`, `ROADMAP.md`, `REGLAS.md`, `PROVIDERS.md`, `comandos.md`, workspace, tests, capturas del README, `config/`).
+- **resources/icon.svg, resources/logo.svg**: Eliminado `<!DOCTYPE>` externo que provocaba falsos errores del validador XML en el IDE.
+
 ## [1.0.36] - 2026-07-07
 
 ### Interfaz — Barra de contexto
