@@ -269,6 +269,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
+    "test": "node --test test/*.test.js",
     "lint": "eslint src --ext ts",
     "package": "npx @vscode/vsce package --no-rewrite-relative-links"
   },
