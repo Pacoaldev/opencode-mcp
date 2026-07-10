@@ -61,13 +61,13 @@ export async function inlineFileUrlsInText(text: string): Promise<string> {
 }
 
 /** Read a local text file into a prompt part (content inlined, not a path). */
-export async function readFileAsPart(filePath: string): Promise<PromptPart> {
+export async function readFileAsPart(filePath: string, label?: string): Promise<PromptPart> {
     const stat = await fs.promises.stat(filePath);
     if (stat.size > MAX_TEXT_FILE_BYTES) {
         throw new Error(`supera 1MB: ${path.basename(filePath)}`);
     }
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
-    return buildFilePart(filePath, doc.getText());
+    return buildFilePart(filePath, doc.getText(), label);
 }
 
 /** ponytail: legacy attach sent file:// paths as text — resolve once at send boundary */
@@ -116,6 +116,7 @@ export async function readFolderAsParts(folderPath: string): Promise<FolderReadR
     const parts: PromptPart[] = [];
     let added = 0;
     let skipped = 0;
+    const folderName = path.basename(folderPath);
 
     async function walk(dir: string, depth = 0): Promise<void> {
         if (depth > 10 || added >= MAX_FOLDER_FILES) {
@@ -140,7 +141,9 @@ export async function readFolderAsParts(folderPath: string): Promise<FolderReadR
                 continue;
             }
             try {
-                parts.push(await readFileAsPart(fullPath));
+                const relPath = path.relative(folderPath, fullPath).replace(/\\/g, '/');
+                const label = `${folderName}/${relPath}`;
+                parts.push(await readFileAsPart(fullPath, label));
                 added++;
             } catch {
                 skipped++;

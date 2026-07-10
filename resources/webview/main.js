@@ -579,6 +579,18 @@
     return kb < 100 ? `${kb.toFixed(1)} KB` : `${Math.round(kb)} KB`;
   }
 
+  function formatLabelColor(label) {
+    if (!label) return '';
+    const parts = label.split('/');
+    if (parts.length > 1) {
+      const fileName = parts.pop();
+      const folderPath = parts.join('/') + '/';
+      const color = localModeEnabled ? '#ff9800' : '#4caf50';
+      return `<span style="color: ${color}; font-weight: 500;">${escHtml(folderPath)}</span>${escHtml(fileName)}`;
+    }
+    return escHtml(label);
+  }
+
   function renderContextListPanel(items) {
     if (!contextListBody) return;
     contextListBody.innerHTML = '';
@@ -598,7 +610,7 @@
       else if (priority === 'ref') row.classList.add('ctx-priority-ref');
       row.innerHTML = `
         <input type="checkbox" class="context-list-row-check" data-index="${index ?? ''}" />
-        <span class="context-list-row-label" title="${escHtml(label)}">${escHtml(label)}</span>
+        <span class="context-list-row-label" title="${escHtml(label)}">${formatLabelColor(label)}</span>
         ${sizeLabel ? `<span class="context-list-row-size">${escHtml(sizeLabel)}</span>` : ''}
         <span class="context-list-row-close" title="Quitar del contexto">
           <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
@@ -642,7 +654,7 @@
       else if (priority === 'ref') tag.classList.add('ctx-priority-ref');
       tag.innerHTML = `
         <svg viewBox="0 0 16 16"><path d="M4 4h8M4 8h6M4 11h4" stroke-linecap="round"/></svg>
-        ${escHtml(label)}
+        ${formatLabelColor(label)}
         <span class="ctx-tag-close">
           <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
         </span>

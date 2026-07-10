@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.37-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.38-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -94,6 +94,14 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.38</strong> — Contexto de carpetas con rutas y colores</summary>
+
+- Al adjuntar una carpeta, los archivos ahora muestran su ruta relativa dentro de la carpeta en lugar de solo su nombre base.
+- El nombre/ruta de la carpeta se resalta con colores dinámicos en la lista de archivos adjuntos y en las "píldoras" de contexto: color **verde** en modo OpenCode y **naranja** en modo LM Studio.
+
+</details>
+
+<details>
 <summary><strong>v1.0.35</strong> — Panel de gestión de contexto</summary>
 
 - Botón **Archivos (N)** en la barra de contexto: lista desplegable con todos los adjuntos.

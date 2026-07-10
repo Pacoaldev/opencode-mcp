@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.38] - 2026-07-10
+
+### Interfaz — Contexto de carpetas
+- **fileContext.ts, main.js**:
+  - Al adjuntar una carpeta, los archivos ahora muestran su ruta relativa dentro de la carpeta en lugar de solo su nombre base.
+  - El nombre/ruta de la carpeta se resalta con colores dinámicos en la lista de archivos adjuntos y en las "píldoras" de contexto: color **verde** en modo OpenCode y **naranja** en modo LM Studio.
+
 ## [1.0.37] - 2026-07-07
 
 ### Build — Empaquetado VSIX
