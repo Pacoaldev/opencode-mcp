@@ -236,6 +236,26 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             }
 
                  let costData: Record<string, any> = JSON.parse(JSON.stringify(this.context.globalState.get('costData') || {}));
+                 let configuredProviders: string[] = [];
+                 try {
+                     const fs = require('fs');
+                     const os = require('os');
+                     const path = require('path');
+                     const authPath = process.env.OPENCODE_AUTH_PATH || path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json');
+                     if (fs.existsSync(authPath)) {
+                         const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+                         configuredProviders = Object.keys(auth).filter(k => auth[k] && auth[k].key);
+                     }
+                     // También comprobar secrets locales de fallback
+                     const apisJson = await this.context.secrets.get('opencode.apis');
+                     if (apisJson) {
+                         const apis = JSON.parse(apisJson);
+                         const fromSecrets = Object.keys(apis).filter(k => Array.isArray(apis[k]) && apis[k].length > 0);
+                         configuredProviders = [...new Set([...configuredProviders, ...fromSecrets])];
+                     }
+                 } catch (e) {
+                     // ignore
+                 }
 
                   this.post({
                       type: 'init',
@@ -244,6 +264,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                           description: a.description ?? '',
                       })),
                       models,
+                      favoritedModels: this.context.globalState.get<string[]>('favoritedModels') || [],
+                      hiddenProviders: this.context.globalState.get<string[]>('hiddenProviders') || [],
+                      configuredProviders,
                       selectedAgent: this.selectedAgent,
                       selectedModel: this.service.getSelectedModel(),
                       context: this.contextAttachments.getDisplayItems(),
@@ -287,6 +310,28 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
              case 'setModel':
                  this.handleSetModelMessage(message);
                  break;
+             case 'toggleFavoriteModel': {
+                 let favs = this.context.globalState.get<string[]>('favoritedModels') || [];
+                 if (favs.includes(message.id)) {
+                     favs = favs.filter(id => id !== message.id);
+                 } else {
+                     favs.push(message.id);
+                 }
+                 await this.context.globalState.update('favoritedModels', favs);
+                 this.post({ type: 'updateFavorites', favoritedModels: favs });
+                 break;
+             }
+             case 'toggleProviderVisibility': {
+                 let hidden = this.context.globalState.get<string[]>('hiddenProviders') || [];
+                 if (message.visible) {
+                     hidden = hidden.filter(id => id !== message.providerId);
+                 } else if (!hidden.includes(message.providerId)) {
+                     hidden.push(message.providerId);
+                 }
+                 await this.context.globalState.update('hiddenProviders', hidden);
+                 this.post({ type: 'updateHiddenProviders', hiddenProviders: hidden });
+                 break;
+             }
              case 'reconnect':
                  await this.handleReconnectMessage();
                  break;

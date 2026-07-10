@@ -46,6 +46,10 @@
     let streamingBodyNode = null;
     let streamingMetaNode = null;
     let selectedModel = '';
+    let allModels = [];
+    let favoritedModels = [];
+    let hiddenProviders = [];
+    let configuredProviders = [];
     let selectedAgent = '';
     let localModeEnabled = false;
     const BRANDING = {
@@ -1008,9 +1012,10 @@ if (gitDiffBtn) {
      if(agentDropdown) agentDropdown.classList.remove('open');
      if(modeDropdown) modeDropdown.classList.remove('open');
      if(templateDropdown) templateDropdown.classList.remove('open');
+     const manageProvidersDropdown = document.getElementById('manageProvidersDropdown');
+     if (manageProvidersDropdown) manageProvidersDropdown.style.display = 'none';
      dropOverlay.classList.remove('open');
    }
-
   modelBtn.addEventListener('click', e => {
     e.stopPropagation();
     closeAllDropdowns();
@@ -1246,126 +1251,22 @@ if (gitDiffBtn) {
           }
         }
 
+        if (msg.favoritedModels) favoritedModels = msg.favoritedModels;
+        if (msg.hiddenProviders) hiddenProviders = msg.hiddenProviders;
+        if (msg.configuredProviders) configuredProviders = msg.configuredProviders;
         if (msg.models && msg.models.length > 0) {
-          let section = dropdown.querySelector('.dropdown-section');
-          if (section) {
-            section.innerHTML = '<div class="dropdown-label">Modelo</div>';
-          } else {
-            section = document.createElement('div');
-            section.className = 'dropdown-section';
-            section.innerHTML = '<div class="dropdown-label">Modelo</div>';
-            dropdown.insertBefore(section, dropdown.firstChild);
-          }
-          
-          // Group models by provider
-          const providers = {};
-          msg.models.forEach(model => {
-            const mId = typeof model === 'string' ? model : model.id;
-            const mName = typeof model === 'string' ? model : model.name;
-            
-            let providerId = 'otros';
-            let providerName = 'Otros';
-            let modelDisplayName = mName;
-            
-            if (mId.includes('::')) {
-              const parts = mId.split('::');
-              providerId = parts[0];
-              const nameParts = mName.split(' - ');
-              if (nameParts.length > 1) {
-                providerName = nameParts[0];
-                modelDisplayName = nameParts.slice(1).join(' - ');
-              } else {
-                providerName = providerId;
-              }
-            }
-            
-            if (!providers[providerId]) {
-              providers[providerId] = {
-                id: providerId,
-                name: providerName,
-                models: []
-              };
-            }
-            providers[providerId].models.push({
-              id: mId,
-              name: modelDisplayName,
-              fullName: mName
-            });
-          });
-
-          const modelsList = document.createElement('div');
-          modelsList.className = 'dropdown-models-list';
-          
-          Object.values(providers).forEach(prov => {
-            const group = document.createElement('div');
-            group.className = 'provider-group';
-            
-            const hasSelected = prov.models.some(m => m.id === selectedModel);
-            if (hasSelected) {
-              group.classList.add('open');
-            }
-            
-            const header = document.createElement('div');
-            header.className = 'provider-header';
-            header.innerHTML = `
-              <span class="provider-name">${escHtml(prov.name)}</span>
-              <span class="provider-arrow">${hasSelected ? '▾' : '▸'}</span>
-            `;
-            
-            const modelsContainer = document.createElement('div');
-            modelsContainer.className = 'provider-models';
-            
-            prov.models.forEach(m => {
-              const item = document.createElement('div');
-              item.className = 'dropdown-item';
-              item.dataset.value = m.id;
-              item.dataset.name = m.fullName;
-              item.innerHTML = `
-                <div class="dropdown-check">${selectedModel === m.id ? '✓' : ''}</div>
-                <div style="flex:1;">${escHtml(m.name)}</div>
-              `;
-              modelsContainer.appendChild(item);
-            });
-            
-            header.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const isOpen = group.classList.contains('open');
-              modelsList.querySelectorAll('.provider-group').forEach(g => {
-                g.classList.remove('open');
-                const arrow = g.querySelector('.provider-arrow');
-                if (arrow) arrow.textContent = '▸';
-              });
-              
-              if (!isOpen) {
-                group.classList.add('open');
-                const arrow = header.querySelector('.provider-arrow');
-                if (arrow) arrow.textContent = '▾';
-              }
-            });
-            
-            group.appendChild(header);
-            group.appendChild(modelsContainer);
-            modelsList.appendChild(group);
-          });
-          
-          section.appendChild(modelsList);
-
+          allModels = msg.models;
           if (msg.selectedModel) {
             selectedModel = msg.selectedModel;
-            // Find the model name from the list
             const foundModel = msg.models.find(m => (typeof m === 'string' ? m : m.id) === selectedModel);
-            if (foundModel) {
-              // handled by updateTopbarDisplay
-            } else {
-              selectedModel = '';
-            }
+            if (!foundModel) selectedModel = '';
           }
-
           if (!selectedModel) {
             const first = msg.models[0];
             selectedModel = typeof first === 'string' ? first : first.id;
           }
-          
+          renderModels();
+          renderProvidersToggle();
           updateTopbarDisplay();
         }
 
@@ -1373,6 +1274,15 @@ if (gitDiffBtn) {
         if (msg.contextHardWarnTokens !== undefined) contextHardWarnTokens = msg.contextHardWarnTokens;
         renderContextItems(msg.context);
         updateContextTokenBadge(msg.contextTokens, msg.contextWarnTokens, msg.contextHardWarnTokens);
+        break;
+      case 'updateFavorites':
+        favoritedModels = msg.favoritedModels;
+        renderModels();
+        break;
+      case 'updateHiddenProviders':
+        hiddenProviders = msg.hiddenProviders;
+        renderModels();
+        renderProvidersToggle();
         break;
       case 'chatCleared':
         // Eliminar todos los mensajes del DOM
@@ -1480,5 +1390,194 @@ case 'context':
     }
   });
 
-  vscode.postMessage({ type: 'ready' });
-})();
+  function renderModels() {
+    const searchVal = (document.getElementById('modelSearchInput')?.value || '').toLowerCase();
+    const providers = {};
+    const visibleModels = allModels.filter(m => {
+      const mName = (typeof m === 'string' ? m : m.name).toLowerCase();
+      const mId = (typeof m === 'string' ? m : m.id).toLowerCase();
+      return mName.includes(searchVal) || mId.includes(searchVal);
+    });
+
+    visibleModels.forEach(model => {
+      const mId = typeof model === 'string' ? model : model.id;
+      const mName = typeof model === 'string' ? model : model.name;
+      let providerId = 'otros';
+      let providerName = 'Otros';
+      let modelDisplayName = mName;
+      
+      if (mId.includes('::')) {
+        const parts = mId.split('::');
+        providerId = parts[0];
+        const nameParts = mName.split(' - ');
+        if (nameParts.length > 1) {
+          providerName = nameParts[0];
+          modelDisplayName = nameParts.slice(1).join(' - ');
+        } else {
+          providerName = providerId;
+        }
+      }
+      
+      if (!providers[providerId]) {
+        providers[providerId] = { id: providerId, name: providerName, models: [] };
+      }
+      providers[providerId].models.push({ id: mId, name: modelDisplayName, fullName: mName });
+    });
+
+    const favsList = document.getElementById('favoritesList');
+    const favsSection = document.getElementById('favoritesSection');
+    const provsList = document.getElementById('providersList');
+    
+    if (favsList) favsList.innerHTML = '';
+    if (provsList) provsList.innerHTML = '';
+    
+    let renderedFavs = 0;
+
+    Object.values(providers).forEach(prov => {
+      if (hiddenProviders.includes(prov.id)) return;
+      
+      const group = document.createElement('div');
+      group.className = 'provider-group';
+      
+      let providerStateIcon = '';
+      if (configuredProviders.includes(prov.id.toLowerCase())) {
+        providerStateIcon = '<span style="color:var(--accent); margin-left:6px; font-size:10px;" title="API Key Configurada">●</span>';
+      } else {
+        providerStateIcon = '<span style="color:var(--text-muted); margin-left:6px; font-size:10px;" title="Sin API Key">○</span>';
+      }
+      
+      const header = document.createElement('div');
+      header.className = 'provider-header';
+      header.innerHTML = `<span class="provider-name">${escHtml(prov.name)}${providerStateIcon}</span><span class="provider-arrow">▾</span>`;
+      
+      const modelsContainer = document.createElement('div');
+      modelsContainer.className = 'provider-models';
+      
+      prov.models.forEach(m => {
+        const isFav = favoritedModels.includes(m.id);
+        if (isFav && favsList) {
+          favsList.appendChild(createModelItem(m, true, true));
+          renderedFavs++;
+        }
+        modelsContainer.appendChild(createModelItem(m, isFav, false));
+      });
+      
+      header.addEventListener('click', (e) => {
+        e.stopPropagation();
+        group.classList.toggle('open');
+        const arrow = header.querySelector('.provider-arrow');
+        if (arrow) arrow.textContent = group.classList.contains('open') ? '▾' : '▸';
+      });
+      
+      group.appendChild(header);
+      group.appendChild(modelsContainer);
+      if (provsList) provsList.appendChild(group);
+    });
+
+    if (favsSection) favsSection.style.display = renderedFavs > 0 ? 'block' : 'none';
+  }
+
+  function createModelItem(m, isFav, inFavSection) {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.dataset.value = m.id;
+    
+    const starClass = isFav ? 'dropdown-star active' : 'dropdown-star';
+    const starIcon = isFav ? '★' : '☆';
+    
+    item.innerHTML = `
+      <div class="dropdown-check">${selectedModel === m.id ? '✓' : ''}</div>
+      <div class="${starClass}" title="Marcar como favorito">${starIcon}</div>
+      <div style="flex:1;">${escHtml(inFavSection ? m.fullName : m.name)}</div>
+    `;
+    
+    const starEl = item.querySelector('.dropdown-star');
+    starEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      vscode.postMessage({ type: 'toggleFavoriteModel', id: m.id });
+    });
+    
+    item.addEventListener('click', () => {
+      selectedModel = m.id;
+      vscode.postMessage({ type: 'setModel', value: selectedModel });
+      updateTopbarDisplay();
+      closeAllDropdowns();
+    });
+    
+    return item;
+  }
+
+  function renderProvidersToggle() {
+    const toggleList = document.getElementById('providersToggleList');
+    if (!toggleList) return;
+    
+    toggleList.innerHTML = '';
+    
+    const uniqueProvs = {};
+    allModels.forEach(model => {
+      const mId = typeof model === 'string' ? model : model.id;
+      const mName = typeof model === 'string' ? model : model.name;
+      let providerId = 'otros';
+      let providerName = 'Otros';
+      if (mId.includes('::')) {
+        const parts = mId.split('::');
+        providerId = parts[0];
+        const nameParts = mName.split(' - ');
+        providerName = nameParts.length > 1 ? nameParts[0] : providerId;
+      }
+      uniqueProvs[providerId] = providerName;
+    });
+    
+    Object.keys(uniqueProvs).sort().forEach(pId => {
+      const item = document.createElement('div');
+      item.className = 'dropdown-item';
+      const isHidden = hiddenProviders.includes(pId);
+      
+      item.innerHTML = `
+        <label style="display:flex; align-items:center; width:100%; cursor:pointer;">
+          <input type="checkbox" ${!isHidden ? 'checked' : ''} style="margin-right: 8px;">
+          <span style="flex:1;">${escHtml(uniqueProvs[pId])}</span>
+        </label>
+      `;
+      
+      item.querySelector('input').addEventListener('change', (e) => {
+        vscode.postMessage({ type: 'toggleProviderVisibility', providerId: pId, visible: e.target.checked });
+      });
+      
+      toggleList.appendChild(item);
+    });
+  }
+
+  const modelSearchInput = document.getElementById('modelSearchInput');
+  if (modelSearchInput) {
+    modelSearchInput.addEventListener('input', () => {
+      renderModels();
+    });
+  }
+  
+  const manageProvidersBtn = document.getElementById('manageProvidersBtn');
+  const manageProvidersDropdown = document.getElementById('manageProvidersDropdown');
+  const closeManageProvidersBtn = document.getElementById('closeManageProvidersBtn');
+  
+  if (manageProvidersBtn) {
+    manageProvidersBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const modelDropdown = document.getElementById('modelDropdown');
+      if (modelDropdown) modelDropdown.classList.remove('open');
+      if (manageProvidersDropdown) {
+        manageProvidersDropdown.style.display = 'flex';
+        manageProvidersDropdown.style.flexDirection = 'column';
+      }
+    });
+  }
+  
+  if (closeManageProvidersBtn) {
+    closeManageProvidersBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (manageProvidersDropdown) manageProvidersDropdown.style.display = 'none';
+      const modelDropdown = document.getElementById('modelDropdown');
+      if (modelDropdown) modelDropdown.classList.add('open');
+    });
+  }
+
+  vscode.postMessage({ type: 'ready' });})();

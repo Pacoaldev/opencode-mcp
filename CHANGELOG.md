@@ -6,6 +6,16 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.39] - 2026-07-11
+
+### Interfaz — Selector de modelos y proveedores
+- **index.html, main.js, chatViewProvider.ts**:
+  - Rediseñado el panel de "Configurar Proveedores", cambiando a una distribución horizontal fluida en lugar de vertical.
+  - Al abrir el desplegable de modelos, los proveedores aparecen colapsados por defecto para una navegación más limpia.
+  - Arreglado el botón de "Favoritos" (★) para que marque y guarde correctamente los modelos favoritos.
+  - Solucionado un problema al desmarcar proveedores en el panel de configuración (ahora se ocultan inmediatamente en la lista principal).
+  - Añadido un indicador visual (● verde / ○ gris) junto al nombre de cada proveedor para mostrar si tiene o no una API Key configurada. La extensión lee automáticamente `auth.json` de OpenCode y el almacenamiento local (`opencode.apis`) para detectar la disponibilidad real de la clave.
+
 ## [1.0.38] - 2026-07-10
 
 ### Interfaz — Contexto de carpetas

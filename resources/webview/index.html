@@ -359,6 +359,10 @@
     display: block;
   }
 
+  #modelDropdown.open {
+    display: flex;
+  }
+
   .dropdown-section {
     padding: 6px 0;
   }
@@ -460,6 +464,59 @@
     text-align: center;
     color: var(--accent);
     font-size: 11px;
+  }
+
+  .dropdown-search {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dropdown-search input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-pri);
+    border-radius: var(--radius);
+    padding: 6px 8px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    outline: none;
+  }
+  .dropdown-search input:focus {
+    border-color: var(--accent);
+  }
+  .dropdown-footer {
+    padding: 6px;
+    border-top: 1px solid var(--border);
+  }
+  .dropdown-footer button {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-sec);
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+  .dropdown-footer button:hover {
+    background: #252525;
+    color: var(--text-pri);
+  }
+  .dropdown-star {
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-right: 4px;
+    display: inline-block;
+    transition: color 0.15s;
+  }
+  .dropdown-star:hover {
+    color: var(--accent);
+  }
+  .dropdown-star.active {
+    color: #ffd700;
   }
 
   /* ── TABS DE CONTEXTO ── */
@@ -1363,10 +1420,32 @@
 
 <!-- DROPDOWN MODELO -->
 <div class="dropdown-overlay" id="dropOverlay"></div>
-<div class="dropdown" id="modelDropdown">
-  <div class="dropdown-section">
-    <div class="dropdown-label">Modelo</div>
+<div class="dropdown" id="modelDropdown" style="width: 280px; max-height: 80vh; flex-direction: column;">
+  <div class="dropdown-search">
+    <input type="text" id="modelSearchInput" placeholder="Buscar modelo o proveedor..." autocomplete="off">
   </div>
+  <div style="overflow-y: auto; flex: 1;" id="modelDropdownScrollable">
+    <div class="dropdown-section" id="favoritesSection" style="display:none;">
+      <div class="dropdown-label">⭐ Favoritos / Recientes</div>
+      <div class="dropdown-models-list" id="favoritesList" style="max-height: unset; overflow-y: visible;"></div>
+    </div>
+    <div class="dropdown-section" id="providersSection">
+      <div class="dropdown-label">☁️ Proveedores</div>
+      <div class="dropdown-models-list" id="providersList" style="max-height: unset; overflow-y: visible;"></div>
+    </div>
+  </div>
+  <div class="dropdown-footer">
+    <button id="manageProvidersBtn">⚙️ Gestionar Proveedores</button>
+  </div>
+</div>
+
+<!-- MANAGE PROVIDERS MODAL -->
+<div class="dropdown" id="manageProvidersDropdown" style="left: 12px; right: 12px; width: auto; padding: 12px;">
+  <div class="dropdown-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+    <span style="font-size: 12px; font-weight: bold; color: var(--text-pri);">Configurar Proveedores</span>
+    <button id="closeManageProvidersBtn" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size: 14px;">✖</button>
+  </div>
+  <div class="dropdown-models-list" id="providersToggleList" style="max-height:400px; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px;"></div>
 </div>
 
 <!-- DROPDOWN AGENTE -->

@@ -427,6 +427,25 @@ export class OpenCodeService implements vscode.Disposable {
         return this.client.listModels();
     }
 
+    async listProviders(): Promise<string[]> {
+        const settings = getOpenCodeSettings();
+        if (settings.localModeEnabled) {
+            return ['lmstudio'];
+        }
+        if (!this.client) {
+            await this.connect();
+        }
+        if (!this.client) {
+            return [];
+        }
+        try {
+            const data = await this.client.listProviders();
+            return data.connected || [];
+        } catch {
+            return [];
+        }
+    }
+
     async isLMStudioAvailable(): Promise<boolean> {
         const settings = getOpenCodeSettings();
         const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/models';
