@@ -94,10 +94,10 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
-<summary><strong>v1.0.38</strong> — Contexto de carpetas con rutas y colores</summary>
+<summary><strong>v1.0.38</strong> — Carpetas en UI y Privacidad de rutas locales</summary>
 
-- Al adjuntar una carpeta, los archivos ahora muestran su ruta relativa dentro de la carpeta en lugar de solo su nombre base.
-- El nombre/ruta de la carpeta se resalta con colores dinámicos en la lista de archivos adjuntos y en las "píldoras" de contexto: color **verde** en modo OpenCode y **naranja** en modo LM Studio.
+- **UI Carpetas**: Al adjuntar una carpeta, los archivos ahora muestran su ruta relativa. El nombre/ruta de la carpeta se resalta en color dinámico (**verde** en modo OpenCode y **naranja** en modo LM Studio).
+- **Privacidad y Seguridad**: Las rutas `file://` que pegues accidentalmente dentro del texto del chat ya no se leen ni adjuntan automáticamente. Solo se envía contenido local cuando adjuntas un archivo explícitamente (evitando fugas accidentales). *¡Gracias a [@fengjikui](https://github.com/fengjikui) por esta excelente contribución!*
 
 </details>
 
@@ -374,10 +374,6 @@ src/
 resources/webview/      # index.html, main.js (UI del chat)
 opencode-adapter.mjs    # Servidor MCP
 ```
-
-Roadmap de próximas mejoras: [ROADMAP.md](ROADMAP.md).
-
----
 
 ## Solución de problemas
 

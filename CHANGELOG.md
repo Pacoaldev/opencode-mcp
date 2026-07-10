@@ -13,6 +13,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - Al adjuntar una carpeta, los archivos ahora muestran su ruta relativa dentro de la carpeta en lugar de solo su nombre base.
   - El nombre/ruta de la carpeta se resalta con colores dinámicos en la lista de archivos adjuntos y en las "píldoras" de contexto: color **verde** en modo OpenCode y **naranja** en modo LM Studio.
 
+### Seguridad y Privacidad
+- **fileContext.ts, opencodeService.ts**:
+  - Se ha dejado de resolver y leer silenciosamente el contenido de rutas `file://` que aparecen embebidas dentro de bloques de texto normales en el prompt. Esto previene fugas accidentales de datos si el usuario pega logs de error con rutas locales.
+  - El contenido de archivos locales solo se lee y se envía a la IA cuando la URL `file://` se envía como un adjunto limpio sin texto extra a su alrededor, manteniendo la funcionalidad esperada de adjuntos explícitos.
+  - Añadidas pruebas de regresión unitarias en `test/` (Mocha).
+
 ## [1.0.37] - 2026-07-07
 
 ### Build — Empaquetado VSIX
