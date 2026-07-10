@@ -94,6 +94,14 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.39</strong> — Selector de modelos mejorado e indicadores de API Keys</summary>
+
+- **Indicador de API Keys**: Se ha añadido un punto visual (● verde / ○ gris) junto a cada proveedor en el selector de modelos. La extensión lee automáticamente tu `auth.json` y los secretos locales de VS Code para indicarte en tiempo real qué proveedores tienen una clave activa y lista para usarse.
+- **Selector UI**: Panel de "Gestión de proveedores" rediseñado a un formato horizontal más espacioso. Además, los proveedores ahora aparecen agrupados y colapsados por defecto para facilitar la navegación y el botón de favoritos funciona correctamente.
+
+</details>
+
+<details>
 <summary><strong>v1.0.38</strong> — Carpetas en UI y Privacidad de rutas locales</summary>
 
 - **UI Carpetas**: Al adjuntar una carpeta, los archivos ahora muestran su ruta relativa. El nombre/ruta de la carpeta se resalta en color dinámico (**verde** en modo OpenCode y **naranja** en modo LM Studio).
