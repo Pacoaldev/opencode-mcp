@@ -51,6 +51,19 @@ Si `opencode.autoStartServer` está activo (por defecto), la extensión lanza `o
   </tr>
 </table>
 
+### Nueva interfaz de modelos y providers
+
+<table>
+  <tr>
+    <th align="center">Selector de modelos y API Keys</th>
+    <th align="center">Configuración de proveedores</th>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/5.png"><img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/5.png" alt="Selector de modelos y API Keys" width="100%" /></a></td>
+    <td align="center"><a href="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/6.png"><img src="https://raw.githubusercontent.com/Pacoaldev/opencode-mcp/main/resources/6.png" alt="Configuración de proveedores horizontal" width="100%" /></a></td>
+  </tr>
+</table>
+
 ---
 
 ## Características
