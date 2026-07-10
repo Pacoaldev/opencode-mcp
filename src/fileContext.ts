@@ -34,30 +34,21 @@ function isBareFileUrl(text: string): boolean {
     return /^file:\/\//i.test(trimmed) && !isImageFileUrl(trimmed);
 }
 
-const FILE_URL_IN_TEXT_RE = /file:\/\/[^\s<>"']+/gi;
-
-/** Replace any file:// reference embedded in a string with inlined file content. */
+/** Inline only legacy text parts that are exactly a file:// reference. */
 export async function inlineFileUrlsInText(text: string): Promise<string> {
-    const matches = [...text.matchAll(FILE_URL_IN_TEXT_RE)];
-    if (matches.length === 0) {
+    if (!isBareFileUrl(text)) {
         return text;
     }
-    let result = text;
-    for (const match of matches) {
-        const url = match[0];
-        if (isImageFileUrl(url)) {
-            continue;
+
+    try {
+        const part = await readFileAsPart(fileUrlToPath(text));
+        if (part.type === 'text') {
+            return part.text;
         }
-        try {
-            const part = await readFileAsPart(fileUrlToPath(url));
-            if (part.type === 'text') {
-                result = result.replace(url, part.text);
-            }
-        } catch {
-            result = result.replace(url, `[No se pudo leer el archivo: ${url}]`);
-        }
+    } catch {
+        return `[No se pudo leer el archivo adjunto: ${text.trim()}]`;
     }
-    return result;
+    return text;
 }
 
 /** Read a local text file into a prompt part (content inlined, not a path). */
@@ -97,7 +88,7 @@ export async function resolveLocalFileReferences(parts: PromptPart[]): Promise<P
                 }
                 continue;
             }
-            out.push({ type: 'text', text: await inlineFileUrlsInText(part.text) });
+            out.push(part);
             continue;
         }
         out.push(part);
