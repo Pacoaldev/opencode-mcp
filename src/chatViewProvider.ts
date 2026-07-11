@@ -225,7 +225,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                         return {
                             role: hasError ? 'error' : m.info.role,
                             text: hasError
-                                ? (m.info.error?.data?.message || m.info.error?.message || m.info.error?.name || 'Error del proveedor')
+                                ? (typeof m.info.error === 'string' ? m.info.error : (m.info.error?.data?.message || m.info.error?.message || m.info.error?.name || 'Error del proveedor'))
                                 : partsToDisplayText(m.parts),
                             metrics: m.info.tokens
                         };

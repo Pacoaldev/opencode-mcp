@@ -1107,8 +1107,9 @@ export class OpenCodeService implements vscode.Disposable {
           
           if (props?.error || lastAssistant?.info?.error) {
               const errorObj = props?.error || lastAssistant?.info?.error;
-              const errMsg = errorObj?.data?.message || errorObj?.message || errorObj?.name || 'Error del proveedor';
-              
+              const errMsg = typeof errorObj === 'string' 
+                  ? errorObj 
+                  : (errorObj?.data?.message || errorObj?.message || errorObj?.name || 'Error del proveedor');
               const failedOver = await this.attemptFailover(errMsg);
               if (failedOver) {
                   return;
