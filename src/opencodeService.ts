@@ -571,8 +571,8 @@ export class OpenCodeService implements vscode.Disposable {
         let parsedModel: { providerID: string, modelID: string } | undefined;
         if (model) {
             const split = model.split('::');
-            if (split.length === 2) {
-                parsedModel = { providerID: split[0], modelID: split[1] };
+            if (split.length >= 2) {
+                parsedModel = { providerID: split[0], modelID: split.slice(1).join('::') };
             }
         }
 

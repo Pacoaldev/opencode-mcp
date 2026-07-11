@@ -98,7 +98,7 @@ export function partsToDisplayText(parts: Part[]): string {
     if (!text && parts.length > 0) {
         return '';
     }
-    return text || '(sin contenido de texto)';
+    return text || '';
 }
 
 export function contextLabel(part: PromptPart): string {

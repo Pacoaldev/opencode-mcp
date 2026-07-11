@@ -633,7 +633,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
              return;
          }
          const agent = message.agent || this.selectedAgent || undefined;
-         const model = message.model || undefined;
+         const model = message.model || this.service.getSelectedModel() || undefined;
          const contextParts = [...this.contextAttachments.getItems()];
          const ok = await this.guardContextBudget(text || '', contextParts, attachments);
          if (!ok) {
@@ -659,7 +659,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
      }
 
      private handleSetModelMessage(message: any): void {
-         this.service.persistSelectedModel(message.model ?? '');
+         this.service.persistSelectedModel(message.model || message.value || '');
      }
 
      private async handleReconnectMessage(): Promise<void> {
@@ -883,7 +883,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           }
           const text = action;
           const agent = this.selectedAgent || undefined;
-          const model = message.model || undefined;
+          const model = message.model || this.service.getSelectedModel() || undefined;
           const contextParts = [...this.contextAttachments.getItems()];
           const ok = await this.guardContextBudget(text || '', contextParts, []);
           if (!ok) {
