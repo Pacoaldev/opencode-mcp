@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.39-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.40-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -107,6 +107,15 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.40</strong> — Corrección en selección de modelos y ocultamiento de razonamiento</summary>
+
+- **Persistencia de Modelo**: Arreglado un bug que impedía retener el modelo seleccionado en el desplegable (siempre usaba el modelo por defecto).
+- **IDs de Modelo Complejos**: Corregido el análisis de IDs de modelo que contienen múltiples `::`.
+- **Razonamiento Oculto**: Los bloques de "pensamiento" interno generados por modelos de razonamiento (como Nemotron) ya no se muestran en el chat, dejándolo más limpio con solo la respuesta final.
+
+</details>
+
+<details>
 <summary><strong>v1.0.39</strong> — Selector de modelos mejorado e indicadores de API Keys</summary>
 
 - **Indicador de API Keys**: Se ha añadido un punto visual (● verde / ○ gris) junto a cada proveedor en el selector de modelos. La extensión lee automáticamente tu `auth.json` y los secretos locales de VS Code para indicarte en tiempo real qué proveedores tienen una clave activa y lista para usarse.
@@ -212,7 +221,7 @@ npm run package
 Luego:
 
 - **VS Code / Cursor:** `Ctrl+Shift+P` → **Extensions: Install from VSIX...**
-- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.39.vsix --force`
+- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.40.vsix --force`
 
 > **Importante:** *Reload Window* carga la extensión **instalada**, no el código fuente del repo. Tras instalar un VSIX nuevo, recarga la ventana una vez.
 

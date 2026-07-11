@@ -6,6 +6,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.40] - 2026-07-11
+
+### Corrección de Bugs — Modelo y Respuestas
+- **chatViewProvider.ts, opencodeService.ts**:
+  - Corregido un bug donde el modelo seleccionado en la interfaz no se utilizaba en la petición a la API, provocando que se usara siempre el modelo por defecto. Ahora se lee correctamente el valor enviado desde el webview.
+  - Solucionado el problema al analizar identificadores de modelo que contenían múltiples separadores (`::`).
+- **parts.ts, opencodeService.ts**:
+  - Ocultado el bloque de razonamiento (pensamiento interno de la IA) tanto en el streaming en vivo como en el historial del chat, mostrando únicamente la respuesta final al usuario.
+
 ## [1.0.39] - 2026-07-11
 
 ### Interfaz — Selector de modelos y proveedores
