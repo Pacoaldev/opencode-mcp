@@ -1043,7 +1043,7 @@ export class OpenCodeService implements vscode.Disposable {
 
          this.resetTimeout(sessionId);
 
-        if (props.part.type === 'text' || props.part.type === 'reasoning') {
+        if (props.part.type === 'text') {
             const prev = this.activeStream.get(sessionId) ?? '';
             let next =
                 props.delta !== undefined

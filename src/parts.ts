@@ -73,9 +73,7 @@ export function partsToDisplayText(parts: Part[]): string {
                 }
                 break;
             case 'reasoning':
-                if (part.text.trim()) {
-                    chunks.push(`_${part.text}_`);
-                }
+                // Ocultamos el razonamiento interno en la UI
                 break;
             case 'tool': {
                 const state = part.state;
