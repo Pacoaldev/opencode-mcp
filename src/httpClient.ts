@@ -105,10 +105,9 @@ export class HttpOpenCodeClient {
                     const modelsArray = p.models ? Object.values(p.models) : [];
                     for (const m of modelsArray as any[]) {
                         result.push({
+                            ...m,
                             id: `${p.id}::${m.id}`,
-                            name: `${p.name} - ${m.name || m.id}`,
-                            modalities: m.modalities,
-                            architecture: m.architecture
+                            name: `${p.name} - ${m.name || m.id}`
                         });
                     }
                 }

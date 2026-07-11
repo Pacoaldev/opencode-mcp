@@ -107,12 +107,18 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.41</strong> — Iconos de modalidades en modelos</summary>
+
+- **Modalidades de Modelo**: Los modelos del desplegable muestran de manera visual y compacta las modalidades que aceptan (por ejemplo, entrada de imágenes). Se ha implementado un sistema robusto que incluye heurísticas para detectar modelos con soporte de visión, asegurando una correcta visualización incluso si la API no devuelve dichos detalles.
+
+</details>
+
+<details>
 <summary><strong>v1.0.40</strong> — Corrección en selección de modelos y ocultamiento de razonamiento</summary>
 
 - **Persistencia de Modelo**: Arreglado un bug que impedía retener el modelo seleccionado en el desplegable (siempre usaba el modelo por defecto).
 - **IDs de Modelo Complejos**: Corregido el análisis de IDs de modelo que contienen múltiples `::`.
 - **Razonamiento Oculto**: Los bloques de "pensamiento" interno generados por modelos de razonamiento (como Nemotron) ya no se muestran en el chat, dejándolo más limpio con solo la respuesta final.
-- **Modalidades de Modelo**: Ahora los modelos del desplegable muestran de manera visual, con iconos de colores, las modalidades que aceptan (entrada de imágenes, generación de texto, etc.) para que sea más fácil diferenciarlos.
 
 </details>
 

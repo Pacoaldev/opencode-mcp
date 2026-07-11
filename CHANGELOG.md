@@ -6,6 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.41] - 2026-07-11
+
+### Interfaz — Modalidades de Modelos
+- **index.html, main.js, httpClient.ts, opencodeService.ts**:
+  - Añadido soporte para visualizar las modalidades soportadas por cada modelo en el menú desplegable mediante pequeños iconos compactos.
+  - Se visualiza si el modelo admite entrada de imágenes (icono verde de imagen) junto al soporte de texto.
+  - Implementada una heurística para detectar automáticamente soporte de visión basado en palabras clave (`vision`, `vl`, `gpt-4o`, `claude-3`, `gemini`, etc.) para suplir modelos en los que la API no informa de forma explícita de sus capacidades.
+
 ## [1.0.40] - 2026-07-11
 
 ### Corrección de Bugs — Modelo y Respuestas
@@ -14,11 +22,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - Solucionado el problema al analizar identificadores de modelo que contenían múltiples separadores (`::`).
 - **parts.ts, opencodeService.ts**:
   - Ocultado el bloque de razonamiento (pensamiento interno de la IA) tanto en el streaming en vivo como en el historial del chat, mostrando únicamente la respuesta final al usuario.
-
-### Interfaz — Modalidades de Modelos
-- **index.html, main.js, httpClient.ts, opencodeService.ts**:
-  - Añadido soporte para visualizar las modalidades soportadas por cada modelo en el menú desplegable.
-  - Se muestran pequeños iconos (texto, imagen, etc.) para identificar rápidamente si un modelo admite entrada de imágenes y si devuelve texto.
 
 ## [1.0.39] - 2026-07-11
 
