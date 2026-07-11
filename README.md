@@ -112,6 +112,7 @@ CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets
 - **Persistencia de Modelo**: Arreglado un bug que impedía retener el modelo seleccionado en el desplegable (siempre usaba el modelo por defecto).
 - **IDs de Modelo Complejos**: Corregido el análisis de IDs de modelo que contienen múltiples `::`.
 - **Razonamiento Oculto**: Los bloques de "pensamiento" interno generados por modelos de razonamiento (como Nemotron) ya no se muestran en el chat, dejándolo más limpio con solo la respuesta final.
+- **Modalidades de Modelo**: Ahora los modelos del desplegable muestran de manera visual, con iconos de colores, las modalidades que aceptan (entrada de imágenes, generación de texto, etc.) para que sea más fácil diferenciarlos.
 
 </details>
 

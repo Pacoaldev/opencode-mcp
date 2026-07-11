@@ -95,18 +95,20 @@ export class HttpOpenCodeClient {
         return this.request<any>('GET', '/provider');
     }
 
-    async listModels(): Promise<{ id: string; name: string }[]> {
+    async listModels(): Promise<{ id: string; name: string; modalities?: any; architecture?: any }[]> {
         try {
             const data = await this.request<any>('GET', '/provider');
             const connected = data.connected || [];
-            const result: { id: string; name: string }[] = [];
+            const result: { id: string; name: string; modalities?: any; architecture?: any }[] = [];
             for (const p of data.all || []) {
                 if (connected.includes(p.id)) {
                     const modelsArray = p.models ? Object.values(p.models) : [];
                     for (const m of modelsArray as any[]) {
                         result.push({
                             id: `${p.id}::${m.id}`,
-                            name: `${p.name} - ${m.name || m.id}`
+                            name: `${p.name} - ${m.name || m.id}`,
+                            modalities: m.modalities,
+                            architecture: m.architecture
                         });
                     }
                 }

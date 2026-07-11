@@ -15,6 +15,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - **parts.ts, opencodeService.ts**:
   - Ocultado el bloque de razonamiento (pensamiento interno de la IA) tanto en el streaming en vivo como en el historial del chat, mostrando únicamente la respuesta final al usuario.
 
+### Interfaz — Modalidades de Modelos
+- **index.html, main.js, httpClient.ts, opencodeService.ts**:
+  - Añadido soporte para visualizar las modalidades soportadas por cada modelo en el menú desplegable.
+  - Se muestran pequeños iconos (texto, imagen, etc.) para identificar rápidamente si un modelo admite entrada de imágenes y si devuelve texto.
+
 ## [1.0.39] - 2026-07-11
 
 ### Interfaz — Selector de modelos y proveedores

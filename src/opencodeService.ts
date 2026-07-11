@@ -413,7 +413,7 @@ export class OpenCodeService implements vscode.Disposable {
         return this.client.listAgents();
     }
 
-    async listModels(): Promise<{ id: string; name: string }[]> {
+    async listModels(): Promise<{ id: string; name: string; modalities?: any; architecture?: any }[]> {
         const settings = getOpenCodeSettings();
         if (settings.localModeEnabled) {
             return this.listLMStudioModels();
@@ -460,7 +460,7 @@ export class OpenCodeService implements vscode.Disposable {
         }
     }
 
-    private async listLMStudioModels(): Promise<{ id: string; name: string }[]> {
+    private async listLMStudioModels(): Promise<{ id: string; name: string; modalities?: any; architecture?: any }[]> {
         const settings = getOpenCodeSettings();
         const url = settings.localModeUrl.replace(/\/$/, '') + '/v1/models';
         try {

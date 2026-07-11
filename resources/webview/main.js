@@ -1485,10 +1485,29 @@ case 'context':
     const starClass = isFav ? 'dropdown-star active' : 'dropdown-star';
     const starIcon = isFav ? '★' : '☆';
     
+    let modalitiesHtml = '';
+    const hasImageInput = (m.modalities && m.modalities.input && m.modalities.input.includes('image')) || 
+                          (m.architecture && m.architecture.modality && m.architecture.modality.includes('image'));
+                          
+    if (m.modalities || m.architecture) {
+      modalitiesHtml += '<div class="modality-pill">';
+      modalitiesHtml += '<span class="mod-icon mod-text" title="Soporta texto"><svg viewBox="0 0 16 16"><path d="M14 3.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h7.5L14 3.5zm-1 0H9.5V1L13 3.5zM3 2v12h10V4.5h-4A.5.5 0 0 1 8.5 4V2H3z"/><path d="M4.5 6a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm0 2.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm0 2.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5z"/></svg></span>';
+      
+      if (hasImageInput) {
+        modalitiesHtml += '<span class="mod-icon mod-image" title="Soporta imágenes"><svg viewBox="0 0 16 16"><path d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 2h12v9.5l-3.5-3.5a.5.5 0 0 0-.7 0L8 9.8 6.2 8a.5.5 0 0 0-.7 0L2 11.5V2zm0 11v-1l4-4 1.8 1.8a.5.5 0 0 0 .7 0L10.5 8l3.5 3.5V13H2z"/><circle cx="4.5" cy="4.5" r="1.5"/></svg></span>';
+      }
+      
+      modalitiesHtml += '<span class="mod-icon mod-text-square" title="Entrada texto">T</span>';
+      modalitiesHtml += '<span class="mod-arrow">→</span>';
+      modalitiesHtml += '<span class="mod-icon mod-text-square" title="Salida texto">T</span>';
+      modalitiesHtml += '</div>';
+    }
+    
     item.innerHTML = `
       <div class="dropdown-check">${selectedModel === m.id ? '✓' : ''}</div>
       <div class="${starClass}" title="Marcar como favorito">${starIcon}</div>
-      <div style="flex:1;">${escHtml(inFavSection ? m.fullName : m.name)}</div>
+      <div style="flex:1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escHtml(inFavSection ? m.fullName : m.name)}</div>
+      ${modalitiesHtml}
     `;
     
     const starEl = item.querySelector('.dropdown-star');
