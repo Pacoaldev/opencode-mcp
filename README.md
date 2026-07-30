@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.42-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.43-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -115,7 +115,7 @@ Además, el flujo de envio ahora incluye:
 ## Novedades recientes
 
 <details open>
-<summary><strong>v1.0.42</strong> — Seguridad integrada y recuperacion automatica</summary>
+<summary><strong>v1.0.43</strong> — Seguridad integrada y recuperacion automatica</summary>
 
 - **Seguridad en envio**: validacion de payload antes de enviar prompts para bloquear contenido sensible por patrones configurables.
 - **Control de acceso en herramientas locales**: `read_file` aplica validacion de acceso/seguridad antes de leer archivos.

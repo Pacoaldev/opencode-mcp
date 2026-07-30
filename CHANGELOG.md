@@ -6,16 +6,21 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
-## [1.0.42] - 2026-07-30
+## [1.0.43] - 2026-07-30
 
-### Seguridad integrada (Paso 6)
+### Caché de contexto inteligente
+- **contextCache.ts, opencodeService.ts**:
+  - Implementación de un sistema de caché inteligente (`ContextCache`) para la preparación del contexto, evitando lecturas redundantes de archivos y optimizando el consumo de tokens.
+  - Integración del estado de Git y de los archivos abiertos para invalidación automática de la caché.
+
+### Seguridad integrada 
 - **securityManager.ts, opencodeService.ts**:
   - Integrada validacion de seguridad en el flujo principal de envio de prompts (deteccion de contenido sensible en texto de prompt/contexto/adjuntos).
   - Añadido control de acceso para lectura de archivos en tool-calling local (`read_file`) con bloqueo por politicas de seguridad.
   - Añadida auditoria de eventos de transmision y llamadas API para trazabilidad de seguridad.
   - Endurecida la implementacion de cifrado para datos sensibles con `aes-256-gcm` y persistencia segura de clave/eventos en `globalState`.
 
-### Manejo avanzado de errores (Paso 8)
+### Manejo avanzado de errores 
 - **opencodeService.ts**:
   - Diagnostico automatico de errores comunes (red, timeout, auth, rate limit, proveedor) con guias de solucion integradas en el mensaje de error.
   - Recuperacion automatica en errores recuperables durante el envio (`prompt_async`): reconexion silenciosa y reintento automatico.
@@ -26,6 +31,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - Corregidos errores de tipado y uso de API para recuperar compilacion limpia.
   - Ajustado almacenamiento persistente para historial/metricas usando `ExtensionContext.globalState`.
   - Validacion: `npm run compile` y `npm test` exitosos.
+
+## [1.0.42] - 2026-07-21
+
+- **Mantenimiento**: Actualización de versión interna del proyecto.
 
 ## [1.0.41] - 2026-07-11
 
