@@ -61,6 +61,30 @@
       {
         "command": "opencode.selectTemplate",
         "title": "Seleccionar e insertar plantilla"
+      },
+      {
+        "command": "opencode.showMetrics",
+        "title": "Mostrar métricas de uso"
+      },
+      {
+        "command": "opencode.explainCode",
+        "title": "Explicar código seleccionado"
+      },
+      {
+        "command": "opencode.generateTests",
+        "title": "Generar tests para código seleccionado"
+      },
+      {
+        "command": "opencode.findBugs",
+        "title": "Buscar bugs en código seleccionado"
+      },
+      {
+        "command": "opencode.refactorCode",
+        "title": "Refactorizar código seleccionado"
+      },
+      {
+        "command": "opencode.explainFile",
+        "title": "Explicar archivo actual"
       }
     ],
     "configuration": {
@@ -204,25 +228,50 @@
         }
       ]
     },
-    "menus": {
-      "editor/context": [
-        {
-          "command": "opencode.addSelectionToContext",
-          "group": "navigation@99",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "opencode.addFileToContext",
-          "group": "navigation@99"
-        }
-      ],
-      "explorer/context": [
-        {
-          "command": "opencode.addFileToContext",
-          "group": "navigation@99",
-          "when": "resourceLangId != ''"
-        }
-      ],
+"menus": {
+       "editor/context": [
+         {
+           "command": "opencode.addSelectionToContext",
+           "group": "navigation@99",
+           "when": "editorHasSelection"
+         },
+         {
+           "command": "opencode.addFileToContext",
+           "group": "navigation@99"
+         },
+         {
+           "command": "opencode.explainCode",
+           "group": "OpenCode@1",
+           "when": "editorHasSelection"
+         },
+         {
+           "command": "opencode.generateTests",
+           "group": "OpenCode@1",
+           "when": "editorHasSelection"
+         },
+         {
+           "command": "opencode.findBugs",
+           "group": "OpenCode@1",
+           "when": "editorHasSelection"
+         },
+         {
+           "command": "opencode.refactorCode",
+           "group": "OpenCode@1",
+           "when": "editorHasSelection"
+         }
+       ],
+       "explorer/context": [
+         {
+           "command": "opencode.addFileToContext",
+           "group": "navigation@99",
+           "when": "resourceLangId != ''"
+         },
+         {
+           "command": "opencode.explainFile",
+           "group": "OpenCode@1",
+           "when": "resourceLangId != ''"
+         }
+       ],
       "commandPalette": [
         {
           "command": "opencode.ask"
@@ -244,24 +293,42 @@
         }
       ]
     },
-    "keybindings": [
-      {
-        "command": "opencode.ask",
-        "key": "ctrl+alt+o",
-        "mac": "cmd+alt+o"
-      },
-      {
-        "command": "opencode.addFileToContext",
-        "key": "ctrl+alt+shift+f",
-        "mac": "cmd+alt+shift+f"
-      },
-      {
-        "command": "opencode.addSelectionToContext",
-        "key": "ctrl+alt+shift+s",
-        "mac": "cmd+alt+shift+s",
-        "when": "editorHasSelection"
-      }
-    ]
+"keybindings": [
+        {
+          "command": "opencode.ask",
+          "key": "ctrl+alt+o",
+          "mac": "cmd+alt+o"
+        },
+        {
+          "command": "opencode.addFileToContext",
+          "key": "ctrl+alt+shift+f",
+          "mac": "cmd+alt+shift+f"
+        },
+        {
+          "command": "opencode.addSelectionToContext",
+          "key": "ctrl+alt+shift+s",
+          "mac": "cmd+alt+shift+s",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "opencode.explainCode",
+          "key": "ctrl+alt+e",
+          "mac": "cmd+alt+e",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "opencode.generateTests",
+          "key": "ctrl+alt+t",
+          "mac": "cmd+alt+t",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "opencode.findBugs",
+          "key": "ctrl+alt+b",
+          "mac": "cmd+alt+b",
+          "when": "editorHasSelection"
+        }
+      ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build",

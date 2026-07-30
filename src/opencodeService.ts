@@ -14,6 +14,7 @@ import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
 import type { Agent, ServerEvent, Session, SessionMessage } from './types';
 import { gitProvider } from './gitProvider';
 import { LocalSessionManager } from './localSessionManager';
+import { SecurityManager } from './securityManager';
 import {
     estimateTokensFromChars,
     logFailover,
@@ -83,6 +84,150 @@ export class OpenCodeService implements vscode.Disposable {
         attachments: PromptPart[];
     } | undefined;
     private failoverIndices: Map<string, number> = new Map();
+    private readonly securityManager = new SecurityManager();
+
+    private diagnoseError(message: string): {
+        category: 'network' | 'timeout' | 'auth' | 'rate_limit' | 'provider' | 'unknown';
+        recoverable: boolean;
+        guidance: string;
+    } {
+        const msg = message.toLowerCase();
+        if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('abort')) {
+            return {
+                category: 'timeout',
+                recoverable: true,
+                guidance: 'Verifica conectividad y vuelve a intentar con menos contexto o un modelo mas rapido.'
+            };
+        }
+        if (msg.includes('401') || msg.includes('403') || msg.includes('unauthorized') || msg.includes('forbidden')) {
+            return {
+                category: 'auth',
+                recoverable: false,
+                guidance: 'Revisa credenciales/API keys del proveedor y permisos del servidor OpenCode.'
+            };
+        }
+        if (msg.includes('429') || msg.includes('rate limit')) {
+            return {
+                category: 'rate_limit',
+                recoverable: true,
+                guidance: 'Se alcanzo el limite del proveedor. Reintenta en unos segundos o cambia de modelo.'
+            };
+        }
+        if (
+            msg.includes('fetch failed') ||
+            msg.includes('econnreset') ||
+            msg.includes('network') ||
+            msg.includes('sse') ||
+            msg.includes('conexion')
+        ) {
+            return {
+                category: 'network',
+                recoverable: true,
+                guidance: 'Parece un fallo de red. La extension puede intentar reconectar automaticamente.'
+            };
+        }
+        if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
+            return {
+                category: 'provider',
+                recoverable: true,
+                guidance: 'El proveedor esta inestable. Reintenta o usa otro modelo/proveedor temporalmente.'
+            };
+        }
+        return {
+            category: 'unknown',
+            recoverable: false,
+            guidance: 'Revisa Output > OpenCode Chat para diagnostico detallado.'
+        };
+    }
+
+    private buildDiagnosedError(message: string): string {
+        const diagnosis = this.diagnoseError(message);
+        return `${message}\n\nDiagnostico: ${diagnosis.guidance}`;
+    }
+
+    private async tryAutomaticRecoveryFromSendError(
+        originalError: string,
+        text: string,
+        agent: string | undefined,
+        model: string | undefined,
+        contextParts: PromptPart[],
+        attachments: PromptPart[]
+    ): Promise<boolean> {
+        const diagnosis = this.diagnoseError(originalError);
+        if (!diagnosis.recoverable) {
+            return false;
+        }
+
+        this.emitStream({
+            sessionId: this.sessionId ?? 'recovery',
+            text: this.activeStream.get(this.sessionId ?? '') ?? '',
+            done: false,
+            statusDetail: 'Recuperacion automatica: reconectando y reintentando...'
+        });
+
+        try {
+            await this.connectSilent();
+            await this.sendPrompt(text, agent, model, contextParts, attachments, true);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    private extractTextSegments(parts: PromptPart[]): string[] {
+        return parts
+            .filter((part) => part.type === 'text')
+            .map((part) => part.text);
+    }
+
+    private tryParseFileUri(value: string): vscode.Uri | undefined {
+        try {
+            if (value.startsWith('file://')) {
+                return vscode.Uri.parse(value);
+            }
+            if (path.isAbsolute(value)) {
+                return vscode.Uri.file(value);
+            }
+        } catch {
+            // No-op
+        }
+        return undefined;
+    }
+
+    private async runSecurityChecks(
+        text: string,
+        contextParts: PromptPart[],
+        attachments: PromptPart[]
+    ): Promise<void> {
+        const payloadSegments = [
+            ...this.extractTextSegments(contextParts),
+            ...this.extractTextSegments(attachments),
+        ];
+        const validation = this.securityManager.validatePromptPayload(text, payloadSegments);
+        if (!validation.allowed) {
+            this.securityManager.auditDataTransmission('send_prompt', 'blocked', {
+                reason: validation.reason,
+            });
+            throw new Error(validation.reason || 'Bloqueado por politicas de seguridad.');
+        }
+
+        const fileParts = [...contextParts, ...attachments].filter((part) => part.type === 'file');
+        for (const part of fileParts) {
+            const fileUri = this.tryParseFileUri(part.url);
+            if (!fileUri) {
+                continue;
+            }
+            const allowed = await this.securityManager.validateFileAccess(fileUri);
+            if (!allowed) {
+                throw new Error(`Acceso bloqueado por seguridad: ${part.filename || fileUri.fsPath}`);
+            }
+        }
+
+        this.securityManager.auditDataTransmission('send_prompt', 'success', {
+            contextParts: contextParts.length,
+            attachments: attachments.length,
+        });
+    }
 
     private resetTimeout(sessionId: string): void {
         this.clearTimeout();
@@ -325,6 +470,7 @@ export class OpenCodeService implements vscode.Disposable {
     async initialize(context: vscode.ExtensionContext): Promise<void> {
         OpenCodeService.extensionContext = context;
         this.localSessionManager = new LocalSessionManager(context);
+        this.securityManager.setExtensionContext(context);
         const storageKey = await this.getSessionStateKey();
         this.sessionId = context.workspaceState.get<string>(storageKey);
         try {
@@ -508,6 +654,7 @@ export class OpenCodeService implements vscode.Disposable {
         const resolvedAttachments = await resolveLocalFileReferences(attachments);
         const normalizedContext = coerceImageParts(resolvedContext);
         const normalizedAttachments = coerceImageParts(resolvedAttachments);
+        await this.runSecurityChecks(resolvedText, normalizedContext, normalizedAttachments);
 
         const promptChars =
             resolvedText.length +
@@ -597,12 +744,29 @@ export class OpenCodeService implements vscode.Disposable {
              this.clearTimeout();
              this.activeStream.delete(sessionId);
              const message = getErrorMessage(error);
+             this.securityManager.auditApiCall('/session/prompt_async', 'send_prompt', 'failure', {
+                 sessionId,
+                 error: message,
+             });
+             if (!isFailover) {
+                 const recovered = await this.tryAutomaticRecoveryFromSendError(
+                     message,
+                     text,
+                     agent,
+                     model,
+                     contextParts,
+                     attachments
+                 );
+                 if (recovered) {
+                     return;
+                 }
+             }
              logSse('stream_error', truncate(message));
              this.emitStream({
                  sessionId,
                  text: '',
                  done: true,
-                 error: message,
+                 error: this.buildDiagnosedError(message),
              });
             throw error;
         }
@@ -643,6 +807,10 @@ export class OpenCodeService implements vscode.Disposable {
                     return 'Error: path debe ser un string';
                 }
                 const target = path.resolve(cwd, args.path);
+                const allowed = await this.securityManager.validateFileAccess(vscode.Uri.file(target));
+                if (!allowed) {
+                    return 'Error: acceso bloqueado por seguridad para el archivo solicitado.';
+                }
                 const stat = await fs.promises.stat(target);
                 if (stat.size > 1024 * 1024) {
                     return `Error: Archivo demasiado grande (${stat.size} bytes). Límite 1MB.`;
@@ -654,10 +822,17 @@ export class OpenCodeService implements vscode.Disposable {
                 if (typeof args.path !== 'string') return 'Error: path debe ser un string';
                 if (typeof args.content !== 'string') return 'Error: content debe ser un string';
                 const target = path.resolve(cwd, args.path);
+                const validation = this.securityManager.validatePromptPayload('', [args.content]);
+                if (!validation.allowed) {
+                    return 'Error: escritura bloqueada por seguridad (contenido sensible detectado).';
+                }
                 
                 // Asegurar que el directorio existe
                 await fs.promises.mkdir(path.dirname(target), { recursive: true });
                 await fs.promises.writeFile(target, args.content, 'utf8');
+                this.securityManager.auditDataTransmission('local_tool_write_file', 'success', {
+                    path: args.path,
+                });
                 return `Archivo guardado con éxito en: ${args.path}`;
             }
             return `Error: Herramienta desconocida ${name}`;
@@ -913,11 +1088,14 @@ export class OpenCodeService implements vscode.Disposable {
         } catch (error) {
             const message = getErrorMessage(error);
             logSse('stream_error', truncate(message));
+            this.securityManager.auditApiCall(url, 'lmstudio_chat_completions', 'failure', {
+                error: message,
+            });
             this.emitStream({
                 sessionId,
                 text: '',
                 done: true,
-                error: getErrorMessage(error),
+                error: this.buildDiagnosedError(getErrorMessage(error)),
                 statusDetail: 'Error en LM Studio.',
             });
             throw error;
@@ -998,7 +1176,7 @@ export class OpenCodeService implements vscode.Disposable {
                     sessionId: activeId,
                     text: '',
                     done: true,
-                    error: `Conexión SSE perdida permanentemente: ${message}`,
+                    error: this.buildDiagnosedError(`Conexión SSE perdida permanentemente: ${message}`),
                     statusDetail: 'Error de conexión.'
                 });
             }
@@ -1116,7 +1294,13 @@ export class OpenCodeService implements vscode.Disposable {
               }
 
               logSse('stream_error', truncate(errMsg));
-              this.emitStream({ sessionId, text: '', done: true, error: errMsg, statusDetail: 'Finalizado con error.' });
+              this.emitStream({
+                  sessionId,
+                  text: '',
+                  done: true,
+                  error: this.buildDiagnosedError(errMsg),
+                  statusDetail: 'Finalizado con error.'
+              });
           } else {
               logSse('stream_end', `session=${sessionId}`);
               this.emitStream({ sessionId, text, done: true, metrics: lastAssistant?.info?.tokens, statusDetail: 'Listo.' });

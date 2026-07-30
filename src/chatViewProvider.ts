@@ -5,12 +5,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { ContextAttachments } from './contextAttachments';
-import { estimateContextTokens, type ContextPriority } from './contextBudget';
+import { estimateContextTokens, partCharSize, type ContextPriority } from './contextBudget';
 import { partsToDisplayText } from './parts';
 import { OpenCodeService } from './opencodeService';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
 import { PromptPart, Template } from './types';
 import { gitProvider } from './gitProvider';
+import { PromptManager } from './promptManager';
+import { MetricsCollector, type UsageMetrics } from './metricsCollector';
 
 /**
  * Utility function to extract error message from unknown error type
@@ -28,6 +30,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     public view: vscode.WebviewView | undefined;
     private readonly contextAttachments = new ContextAttachments();
+    private readonly promptManager: PromptManager;
+    private readonly metricsCollector: MetricsCollector;
     private selectedAgent = '';
     private lmStudioPromptShown = false;
     private failoverToastShown = false;
@@ -37,6 +41,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         private readonly context: vscode.ExtensionContext,
         private readonly service: OpenCodeService
     ) {
+        this.promptManager = new PromptManager(context);
+        this.metricsCollector = new MetricsCollector(context);
+
         service.onStream((update) => {
             if (update.systemMessage) {
                 this.post({ type: 'system', text: update.systemMessage });
@@ -422,13 +429,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                  await this.handleLoadCostDataMessage();
                  break;
              }
-             case 'copyToClipboard': {
-                 await this.handleCopyToClipboardMessage(message);
+case 'copyToClipboard': {
+                  await this.handleCopyToClipboardMessage(message);
+                  break;
+              }
+case 'getPromptSuggestions': {
+                   await this.handleGetPromptSuggestions(message);
+                   break;
+               }
+               case 'getMetrics': {
+                   await this.handleGetMetricsMessage();
+                   break;
+               }
+             default:
                  break;
-             }
-            default:
-                break;
-        }
+         }
     }
 
      notifyContextChanged(): void {
@@ -626,33 +641,57 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
          await this.refreshState();
      }
 
-     private async handleSendMessage(message: any): Promise<void> {
-         const text = message.text?.trim();
-         const attachments = message.attachments || [];
-         if (!text && attachments.length === 0) {
-             return;
-         }
-         const agent = message.agent || this.selectedAgent || undefined;
-         const model = message.model || this.service.getSelectedModel() || undefined;
-         const contextParts = [...this.contextAttachments.getItems()];
-         const ok = await this.guardContextBudget(text || '', contextParts, attachments);
-         if (!ok) {
-             return;
-         }
-         this.contextAttachments.clear();
-         this.post({ type: 'status', state: 'busy' });
-         this.post({
-             type: 'context',
-             items: [],
-         });
-         try {
-             await this.service.sendPrompt(text || '', agent, model, contextParts, attachments);
-          } catch (error) {
-              const msg = getErrorMessage(error);
-              this.post({ type: 'error', message: msg });
-              this.post({ type: 'status', state: 'idle' });
+private async handleSendMessage(message: any): Promise<void> {
+          const text = message.text?.trim();
+          const attachments = message.attachments || [];
+          if (!text && attachments.length === 0) {
+              return;
           }
-     }
+          const agent = message.agent || this.selectedAgent || undefined;
+          const model = message.model || this.service.getSelectedModel() || undefined;
+          const contextParts = [...this.contextAttachments.getItems()];
+          const ok = await this.guardContextBudget(text || '', contextParts, attachments);
+          if (!ok) {
+              return;
+          }
+          this.contextAttachments.clear();
+          this.post({ type: 'status', state: 'busy' });
+          this.post({
+              type: 'context',
+              items: [],
+          });
+
+          const startTime = Date.now();
+          let isError = false;
+          
+          try {
+              await this.service.sendPrompt(text || '', agent, model, contextParts, attachments);
+              
+              // Record successful metrics
+              const responseTime = Date.now() - startTime;
+              const contextTokens = contextParts.reduce((sum, part) => sum + partCharSize(part), 0);
+              
+              this.metricsCollector.recordRequest(model, {
+                  input: contextTokens,
+                  output: 0 // Will be updated when we get the response
+              }, responseTime, isError);
+              
+           } catch (error) {
+               isError = true;
+               const msg = getErrorMessage(error);
+               this.post({ type: 'error', message: msg });
+               this.post({ type: 'status', state: 'idle' });
+               
+               // Record error metrics
+               const responseTime = Date.now() - startTime;
+               const contextTokens = contextParts.reduce((sum, part) => sum + partCharSize(part), 0);
+               
+               this.metricsCollector.recordRequest(model, {
+                   input: contextTokens,
+                   output: 0
+               }, responseTime, isError);
+           }
+      }
 
      private handleSetAgentMessage(message: any): void {
          this.selectedAgent = message.agent ?? '';
@@ -1154,11 +1193,31 @@ if (successCount > 0) {
            this.post({ type: 'costDataUpdate', costData });
        }
 
-       private async handleCopyToClipboardMessage(message: any): Promise<void> {
-           if (message.text) {
-               await vscode.env.clipboard.writeText(message.text);
-           }
-       }
+private async handleCopyToClipboardMessage(message: any): Promise<void> {
+            if (message.text) {
+                await vscode.env.clipboard.writeText(message.text);
+            }
+        }
+
+        private async handleGetPromptSuggestions(message: any): Promise<void> {
+            const suggestions = this.promptManager.getSuggestions(message.text, 5);
+            this.post({ type: 'promptSuggestions', suggestions });
+        }
+
+        private async handleGetMetricsMessage(): Promise<void> {
+            const metrics = this.metricsCollector.getMetrics();
+            const topModels = this.metricsCollector.getTopModels(5);
+            const dailyStats = this.metricsCollector.getDailyStats(7);
+            const efficiencyScore = this.metricsCollector.getEfficiencyScore();
+            
+            this.post({
+                type: 'metricsUpdate',
+                metrics,
+                topModels,
+                dailyStats,
+                efficiencyScore
+            });
+        }
 
        private getHtml(webview: vscode.Webview): string {
         const settings = getOpenCodeSettings();

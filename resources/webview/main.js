@@ -498,17 +498,41 @@
     }
   });
 
-     /* mostrar plantillas con \"/\" */
-   inputEl.addEventListener('keydown', e => {
-     if (e.key === '/' && !e.shiftKey) {
-       e.preventDefault();
-       closeAllDropdowns();
-       if (templateDropdown) {
-         templateDropdown.classList.add('open');
-         dropOverlay.classList.add('open');
-       }
-     }
-   });
+/* mostrar plantillas con \"/\" */
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === '/' && !e.shiftKey) {
+        e.preventDefault();
+        closeAllDropdowns();
+        if (templateDropdown) {
+          templateDropdown.classList.add('open');
+          dropOverlay.classList.add('open');
+        }
+      }
+    });
+
+    /* autocompletado de prompts */
+    inputEl.addEventListener('input', e => {
+      const text = e.target.value;
+      if (text.length > 2) {
+        vscode.postMessage({
+          type: 'getPromptSuggestions',
+          text: text
+        });
+      } else {
+        hidePromptSuggestions();
+      }
+    });
+
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        hidePromptSuggestions();
+      }
+      if (e.key === 'ArrowDown' && suggestionDropdown) {
+        e.preventDefault();
+        const firstItem = suggestionDropdown.querySelector('.suggestion-item');
+        if (firstItem) firstItem.focus();
+      }
+    });
 	
    // Initial mode set; actual handler updated via setStatus
 
@@ -797,6 +821,143 @@ function renderTemplateDropdown() {
     renderAttachments();
   }
 
+  function showPromptSuggestions(suggestions) {
+    promptSuggestions = suggestions;
+    
+    // Remove existing dropdown
+    if (suggestionDropdown) {
+      suggestionDropdown.remove();
+      suggestionDropdown = null;
+    }
+    
+    if (suggestions.length === 0) return;
+    
+    // Create dropdown
+    suggestionDropdown = document.createElement('div');
+    suggestionDropdown.className = 'suggestion-dropdown';
+    suggestionDropdown.style.position = 'absolute';
+    suggestionDropdown.style.top = inputEl.offsetTop + inputEl.offsetHeight + 'px';
+    suggestionDropdown.style.left = inputEl.offsetLeft + 'px';
+    suggestionDropdown.style.right = '0';
+    suggestionDropdown.style.backgroundColor = 'var(--bg)';
+    suggestionDropdown.style.border = '1px solid var(--border)';
+    suggestionDropdown.style.borderRadius = '4px';
+    suggestionDropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    suggestionDropdown.style.zIndex = '1000';
+    suggestionDropdown.style.maxHeight = '200px';
+    suggestionDropdown.style.overflowY = 'auto';
+    
+    suggestions.forEach(suggestion => {
+      const item = document.createElement('div');
+      item.className = 'suggestion-item';
+      item.style.padding = '8px 12px';
+      item.style.cursor = 'pointer';
+      item.style.whiteSpace = 'nowrap';
+      item.style.overflow = 'hidden';
+      item.style.textOverflow = 'ellipsis';
+      item.textContent = suggestion.text;
+      
+      item.addEventListener('click', () => {
+        inputEl.value = suggestion.text;
+        suggestionDropdown.remove();
+        suggestionDropdown = null;
+        inputEl.focus();
+      });
+      
+      item.addEventListener('mouseenter', () => {
+        item.style.backgroundColor = 'var(--bg-hover)';
+      });
+      
+      item.addEventListener('mouseleave', () => {
+        item.style.backgroundColor = 'transparent';
+      });
+      
+      suggestionDropdown.appendChild(item);
+    });
+    
+    inputEl.parentNode.appendChild(suggestionDropdown);
+  }
+
+  function hidePromptSuggestions() {
+    if (suggestionDropdown) {
+      suggestionDropdown.remove();
+      suggestionDropdown = null;
+    }
+  }
+
+  function showMetricsModal(metrics, topModels, dailyStats, efficiencyScore) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '10000';
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.backgroundColor = 'var(--bg)';
+    modalContent.style.borderRadius = '8px';
+    modalContent.style.padding = '20px';
+    modalContent.style.maxWidth = '600px';
+    modalContent.style.maxHeight = '80vh';
+    modalContent.style.overflowY = 'auto';
+
+    modalContent.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">Métricas de Uso</h2>
+        <button class="icon-btn" onclick="this.closest('.modal-overlay').remove()" style="background: none; border: none; cursor: pointer; padding: 4px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h3>Resumen General</h3>
+        <p>Solicitudes totales: ${metrics.totalRequests}</p>
+        <p>Tokens totales: ${metrics.totalTokens.input.toLocaleString()} input, ${metrics.totalTokens.output.toLocaleString()} output</p>
+        <p>Tiempo promedio de respuesta: ${(metrics.averageResponseTime / 1000).toFixed(1)}s</p>
+        <p>Tasa de error: ${(metrics.errorRate * 100).toFixed(1)}%</p>
+        <p>Puntuación de eficiencia: ${efficiencyScore.toFixed(1)}/100</p>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h3>Modelos más usados</h3>
+        ${topModels.map(model => `
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+            <span>${model.model}</span>
+            <span>${model.requests} solicitudes (${model.avgTokens.toFixed(0)} tokens promedio)</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <div>
+        <h3>Uso diario (últimos 7 días)</h3>
+        ${dailyStats.map(day => `
+          <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px;">
+            <span>${day.date}</span>
+            <span>${day.requests} solicidades, ${day.tokens.input + day.tokens.output} tokens</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+  }
+
   window.sendQuick = function(text) {
     appendMessage('user', text);
     setStatus('busy');
@@ -932,12 +1093,19 @@ if (gitDiffBtn) {
      });
    }
 
-   if (gitContextBtn) {
-     gitContextBtn.addEventListener('click', () => {
-       showButtonFeedback(gitContextBtn, gitContextBtn.innerHTML, 500);
-       vscode.postMessage({ type: 'addGitToContext' });
-     });
-   }
+if (gitContextBtn) {
+      gitContextBtn.addEventListener('click', () => {
+        showButtonFeedback(gitContextBtn, gitContextBtn.innerHTML, 500);
+        vscode.postMessage({ type: 'addGitToContext' });
+      });
+    }
+
+  if (metricsBtn) {
+    metricsBtn.addEventListener('click', () => {
+      showButtonFeedback(metricsBtn, metricsBtn.innerHTML, 500);
+      vscode.postMessage({ type: 'getMetrics' });
+    });
+  }
 
   if (contextAddBtn) {
     contextAddBtn.addEventListener('click', (e) => {
@@ -1369,21 +1537,27 @@ case 'context':
            }
          }
          break;
-      case 'insertText':
-        if (msg.text) {
-          const start = inputEl.selectionStart;
-          const end = inputEl.selectionEnd;
-          const val = inputEl.value;
-          inputEl.value = val.substring(0, start) + msg.text + val.substring(end);
-          inputEl.focus();
-          inputEl.selectionStart = inputEl.selectionEnd = start + msg.text.length;
-          inputEl.style.height = 'auto';
-          inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
-        }
-        break;
+case 'insertText':
+         if (msg.text) {
+           const start = inputEl.selectionStart;
+           const end = inputEl.selectionEnd;
+           const val = inputEl.value;
+           inputEl.value = val.substring(0, start) + msg.text + val.substring(end);
+           inputEl.focus();
+           inputEl.selectionStart = inputEl.selectionEnd = start + msg.text.length;
+           inputEl.style.height = 'auto';
+           inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+         }
+         break;
+       case 'metricsUpdate':
+         showMetricsModal(msg.metrics, msg.topModels, msg.dailyStats, msg.efficiencyScore);
+         break;
       case 'fileAttached':
         attachments.push(msg.attachment);
         renderAttachments();
+        break;
+      case 'promptSuggestions':
+        showPromptSuggestions(msg.suggestions);
         break;
       default:
         break;

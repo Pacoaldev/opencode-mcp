@@ -8,6 +8,7 @@ import {
     priorityLabelPrefix,
     type ContextPriority,
 } from './contextBudget';
+import { ContextCache } from './contextCache';
 
 interface StoredContextItem {
     part: PromptPart;
@@ -24,6 +25,11 @@ export interface ContextDisplayItem {
 export class ContextAttachments {
     private readonly items: StoredContextItem[] = [];
     private readonly MAX_SIZE_BYTES = 1024 * 1024; // 1MB
+    private readonly cache: ContextCache;
+
+    constructor() {
+        this.cache = new ContextCache();
+    }
 
     getItems(): readonly PromptPart[] {
         return this.items.map((item) => applyPriorityPrefix(item.part, item.priority));
@@ -42,8 +48,21 @@ export class ContextAttachments {
         return estimateContextTokens(promptText, this.getItems());
     }
 
+    getCache(): ContextCache {
+        return this.cache;
+    }
+
+    updateCache(): void {
+        this.cache.set();
+    }
+
+    getCachedContext(): any {
+        return this.cache.get();
+    }
+
     clear(): void {
         this.items.length = 0;
+        this.cache.clear();
     }
 
     trimAll(): void {

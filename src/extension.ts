@@ -149,6 +149,96 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             if (chatProvider?.view) {
                 chatProvider.view.webview.postMessage({ type: 'insertText', text: selected.template.content });
             }
+        }),
+        vscode.commands.registerCommand('opencode.showMetrics', async () => {
+            await chatProvider?.view?.webview.postMessage({ type: 'getMetrics' });
+        }),
+        vscode.commands.registerCommand('opencode.explainCode', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) return;
+            
+            const selection = editor.selection;
+            const text = editor.document.getText(selection);
+            if (!text) return;
+            
+            await chatProvider?.focus();
+            await chatProvider?.view?.webview.postMessage({ 
+                type: 'send', 
+                text: `Explica el siguiente código:\n\`\`\`\n${text}\n\`\`\``,
+                agent: '',
+                model: '',
+                attachments: []
+            });
+        }),
+        vscode.commands.registerCommand('opencode.generateTests', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) return;
+            
+            const selection = editor.selection;
+            const text = editor.document.getText(selection);
+            if (!text) return;
+            
+            await chatProvider?.focus();
+            await chatProvider?.view?.webview.postMessage({ 
+                type: 'send', 
+                text: `Genera tests unitarios para el siguiente código:\n\`\`\`\n${text}\n\`\`\``,
+                agent: '',
+                model: '',
+                attachments: []
+            });
+        }),
+        vscode.commands.registerCommand('opencode.findBugs', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) return;
+            
+            const selection = editor.selection;
+            const text = editor.document.getText(selection);
+            if (!text) return;
+            
+            await chatProvider?.focus();
+            await chatProvider?.view?.webview.postMessage({ 
+                type: 'send', 
+                text: `Busca posibles bugs o vulnerabilidades en el siguiente código:\n\`\`\`\n${text}\n\`\`\``,
+                agent: '',
+                model: '',
+                attachments: []
+            });
+        }),
+        vscode.commands.registerCommand('opencode.refactorCode', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) return;
+            
+            const selection = editor.selection;
+            const text = editor.document.getText(selection);
+            if (!text) return;
+            
+            await chatProvider?.focus();
+            await chatProvider?.view?.webview.postMessage({ 
+                type: 'send', 
+                text: `Refactoriza el siguiente código para mejorar su legibilidad y rendimiento:\n\`\`\`\n${text}\n\`\`\``,
+                agent: '',
+                model: '',
+                attachments: []
+            });
+        }),
+        vscode.commands.registerCommand('opencode.explainFile', async (uri?: vscode.Uri) => {
+            const document = uri ? 
+                await vscode.workspace.openTextDocument(uri) : 
+                vscode.window.activeTextEditor?.document;
+            
+            if (!document) return;
+            
+            const text = document.getText();
+            const fileName = document.fileName;
+            
+            await chatProvider?.focus();
+            await chatProvider?.view?.webview.postMessage({ 
+                type: 'send', 
+                text: `Explica el archivo ${fileName}:\n\`\`\`\n${text}\n\`\`\``,
+                agent: '',
+                model: '',
+                attachments: []
+            });
         })
     );
 

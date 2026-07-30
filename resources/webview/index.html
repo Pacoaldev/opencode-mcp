@@ -1647,6 +1647,9 @@
         <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
       </button>
     <div class="tool-btn-sep"></div>
+    <button class="tool-btn" id="metricsBtn" title="Métricas de uso">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18M3 9h4v10M9 5h4v14M15 7h4v12"/></svg>
+    </button>
     <span class="mode-pill" id="modePill">auto</span>
     <span class="shortcut-hint">Enter ↵</span>
   </div> <!-- closes input-toolbar -->
@@ -1663,8 +1666,28 @@
     <div id="costContent" class="cost-content">
       <!-- Aquí se mostrarán los costos -->
     </div>
-  </div>
+</div>
 
-  <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+   <!-- Estilos para autocompletado de prompts y métricas -->
+   <style>
+     .suggestion-dropdown {
+       font-family: var(--font-body);
+       font-size: 14px;
+     }
+     .suggestion-item:hover {
+       background-color: var(--bg-hover);
+     }
+     .suggestion-item {
+       transition: background-color 0.2s ease;
+     }
+     .modal-overlay {
+       font-family: var(--font-body);
+     }
+     .modal-content {
+       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+     }
+   </style>
+
+   <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
 </body>
 </html>

@@ -102,11 +102,30 @@ Si `opencode.autoStartServer` está activo (por defecto), la extensión lanza `o
 
 CSP restrictiva en el webview, sanitización HTML, `execFile` sin shell, secrets en `SecretStorage`, parsing SSE tolerante a CRLF y detección de caídas de conexión.
 
+Además, el flujo de envio ahora incluye:
+
+- Validacion de seguridad previa al prompt (deteccion de patrones sensibles en contexto y adjuntos de texto).
+- Control de acceso de lectura para archivos usados por herramientas locales (`read_file`).
+- Auditoria de eventos de transmision y llamadas API con reporte interno.
+- Diagnostico de errores comunes con guia integrada para red, timeout, auth y limites del proveedor.
+- Recuperacion automatica en errores recuperables de envio (reconexion y reintento).
+
 ---
 
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.42</strong> — Seguridad integrada y recuperacion automatica</summary>
+
+- **Seguridad en envio**: validacion de payload antes de enviar prompts para bloquear contenido sensible por patrones configurables.
+- **Control de acceso en herramientas locales**: `read_file` aplica validacion de acceso/seguridad antes de leer archivos.
+- **Auditoria de seguridad**: registro persistente de eventos de transmision y llamadas API para diagnostico.
+- **Manejo avanzado de errores**: mensajes con diagnostico accionable y reintento automatico en fallos recuperables de red/timeout/proveedor.
+- **Estabilidad de compilacion**: correcciones de tipado en modulos de cache, metricas y prompts; compilacion y tests en verde.
+
+</details>
+
+<details>
 <summary><strong>v1.0.41</strong> — Iconos de modalidades en modelos</summary>
 
 - **Modalidades de Modelo**: Los modelos del desplegable muestran de manera visual y compacta las modalidades que aceptan (por ejemplo, entrada de imágenes). Se ha implementado un sistema robusto que incluye heurísticas para detectar modelos con soporte de visión, asegurando una correcta visualización incluso si la API no devuelve dichos detalles.
