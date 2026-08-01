@@ -112,6 +112,50 @@ export class HttpOpenCodeClient {
                     }
                 }
             }
+
+            const fs = require('fs');
+            const os = require('os');
+            const path = require('path');
+            const authPath = process.env.OPENCODE_AUTH_PATH || path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json');
+            let hasReplicate = false;
+            let hasQwen = false;
+            let hasElevenlabs = false;
+            try {
+                if (fs.existsSync(authPath)) {
+                    const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+                    hasReplicate = !!(auth['replicate'] && auth['replicate'].key);
+                    hasQwen = !!(auth['qwen'] && auth['qwen'].key);
+                    hasElevenlabs = !!(auth['elevenlabs'] && auth['elevenlabs'].key);
+                }
+            } catch (e) {}
+
+            if (hasReplicate) {
+                result.push({
+                    id: 'replicate::meta/meta-llama-3-70b-instruct',
+                    name: 'Replicate - Llama 3 70B Instruct',
+                    modalities: { input: ['text'], output: ['text'] }
+                });
+            }
+            if (hasQwen) {
+                result.push({
+                    id: 'qwen::qwen-2.5-72b-instruct',
+                    name: 'Qwen - Qwen 2.5 72B Instruct',
+                    modalities: { input: ['text'], output: ['text'] }
+                });
+                result.push({
+                    id: 'qwen::qwen-2.5-coder-32b-instruct',
+                    name: 'Qwen - Qwen 2.5 Coder 32B Instruct',
+                    modalities: { input: ['text'], output: ['text'] }
+                });
+            }
+            if (hasElevenlabs) {
+                result.push({
+                    id: 'elevenlabs::eleven-multilingual-v2',
+                    name: 'Elevenlabs - Eleven Multilingual v2',
+                    modalities: { input: ['text'], output: ['text'] }
+                });
+            }
+
             return result;
         } catch {
             return [];
