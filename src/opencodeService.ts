@@ -16,6 +16,12 @@ import { gitProvider } from './gitProvider';
 import { LocalSessionManager } from './localSessionManager';
 import { SecurityManager } from './securityManager';
 import {
+    extractModelRefFromEolError,
+    isModelEolMessage,
+    modelIdIsKnownEol,
+    resolveSelectedModel,
+} from './modelPolicy';
+import {
     estimateTokensFromChars,
     logFailover,
     logHttpError,
@@ -87,11 +93,19 @@ export class OpenCodeService implements vscode.Disposable {
     private readonly securityManager = new SecurityManager();
 
     private diagnoseError(message: string): {
-        category: 'network' | 'timeout' | 'auth' | 'rate_limit' | 'provider' | 'unknown';
+        category: 'network' | 'timeout' | 'auth' | 'rate_limit' | 'provider' | 'model_eol' | 'unknown';
         recoverable: boolean;
         guidance: string;
     } {
         const msg = message.toLowerCase();
+        if (isModelEolMessage(message) || modelIdIsKnownEol(message)) {
+            return {
+                category: 'model_eol',
+                recoverable: false,
+                guidance:
+                    'Ese modelo llego a fin de vida (EOL). Elige otro del listado; la extension intentara cambiar automaticamente al mas cercano disponible.',
+            };
+        }
         if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('abort')) {
             return {
                 category: 'timeout',
@@ -318,6 +332,17 @@ export class OpenCodeService implements vscode.Disposable {
     persistSelectedModel(model: string): void {
         const key = `model.${this.workspaceKey()}`;
         void OpenCodeService.extensionContext?.globalState.update(key, model || undefined);
+    }
+
+    syncSelectedModelWithCatalog(
+        models: { id: string }[]
+    ): string | undefined {
+        const current = this.getSelectedModel();
+        const resolved = resolveSelectedModel(models, current);
+        if (resolved && resolved !== current) {
+            this.persistSelectedModel(resolved);
+        }
+        return resolved ?? current;
     }
 
     getSelectedModel(): string | undefined {
@@ -760,6 +785,10 @@ export class OpenCodeService implements vscode.Disposable {
                  sessionId,
                  error: message,
              });
+             if (isModelEolMessage(message)) {
+                 await this.handleModelEolError(message);
+                 return;
+             }
              if (!isFailover) {
                  const recovered = await this.tryAutomaticRecoveryFromSendError(
                      message,
@@ -1300,6 +1329,10 @@ export class OpenCodeService implements vscode.Disposable {
               const errMsg = typeof errorObj === 'string' 
                   ? errorObj 
                   : (errorObj?.data?.message || errorObj?.message || errorObj?.name || 'Error del proveedor');
+              if (isModelEolMessage(errMsg)) {
+                  await this.handleModelEolError(errMsg);
+                  return;
+              }
               const failedOver = this.shouldAttemptFailover(errMsg)
                   ? await this.attemptFailover(errMsg)
                   : false;
@@ -1334,6 +1367,47 @@ export class OpenCodeService implements vscode.Disposable {
                  }
              }
              await this.handlePermission(event.properties);
+       }
+
+       private async handleModelEolError(errMsg: string): Promise<void> {
+        const sessionId = this.sessionId;
+        if (!sessionId) {
+            return;
+        }
+
+        this.clearTimeout();
+        this.activeStream.delete(sessionId);
+
+        const current = this.lastPromptInfo?.model || this.getSelectedModel();
+        const eolRef = extractModelRefFromEolError(errMsg);
+        let replacement: string | undefined;
+
+        try {
+            const models = await this.listModels();
+            replacement = resolveSelectedModel(models, current);
+            if (replacement && replacement !== current) {
+                this.persistSelectedModel(replacement);
+            }
+        } catch {
+            // ponytail: sin catálogo solo limpiamos selección EOL conocida
+            if (current && (modelIdIsKnownEol(current) || (eolRef && current.includes(eolRef)))) {
+                this.persistSelectedModel('');
+            }
+        }
+
+        const detail = replacement && replacement !== current
+            ? `Modelo EOL. Cambiado automaticamente a ${replacement}. Vuelve a enviar el mensaje.`
+            : 'Modelo EOL o retirado. Elige otro modelo en el selector y reenvia.';
+
+        logSse('stream_error', truncate(errMsg));
+        this.emitStream({
+            sessionId,
+            text: '',
+            done: true,
+            error: this.buildDiagnosedError(errMsg),
+            systemMessage: detail,
+            statusDetail: 'Modelo no disponible (EOL).',
+        });
        }
 
        private async attemptFailover(errMsg: string): Promise<boolean> {

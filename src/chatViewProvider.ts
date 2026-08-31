@@ -216,11 +216,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                         'Inicia el servidor local en LM Studio.'
                 );
             } else if (models.length > 0) {
-                const current = this.service.getSelectedModel();
-                const valid = current && models.some((m) => m.id === current);
-                if (!valid) {
-                    this.service.persistSelectedModel(models[0].id);
-                }
+                this.service.syncSelectedModelWithCatalog(models);
             }
         } else {
             try {
@@ -232,6 +228,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 models = await this.service.listModels();
             } catch (error) {
                 fetchWarnings.push(getErrorMessage(error));
+            }
+            if (models.length > 0) {
+                this.service.syncSelectedModelWithCatalog(models);
             }
         }
 

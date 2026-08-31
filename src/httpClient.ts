@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import type { Agent, PromptPart, ServerEvent, Session, SessionMessage } from './types';
 import { logHttpError, sanitizeUrl, truncate } from './logger';
+import { filterAvailableModels } from './modelPolicy';
 import { getAuthPath } from './settings';
 
 export interface HttpClientOptions {
@@ -136,7 +137,7 @@ export class HttpOpenCodeClient {
                     });
                 }
             }
-            return result;
+            return filterAvailableModels(result);
         } catch {
             return [];
         }

@@ -6,6 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.49] - 2026-08-31
+
+### Modelos EOL (410 Gone) — p. ej. `z-ai/glm-5.2`
+- **modelPolicy.ts** (nuevo): blocklist de modelos retirados, detección de errores EOL/410, remapeo `z-ai` → `zhipuai`, fallback a `glm-5.3`.
+- **httpClient.ts**: filtra modelos EOL conocidos del listado en vivo.
+- **opencodeService.ts**: no hace failover ante 410; limpia selección, sugiere reemplazo y mensaje accionable.
+- **chatViewProvider.ts**: valida el modelo guardado al iniciar (cloud y local).
+
 ## [1.0.48] - 2026-08-31
 
 ### Corrección crítica — failover rompía todos los proveedores
