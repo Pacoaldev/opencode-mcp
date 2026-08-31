@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.46] - 2026-08-31
+
+### Conexión — reintento de auto-arranque de OpenCode
+- **opencodeService.ts**:
+  - `ensureCloudConnection()` comprueba salud del servidor antes de listar agentes/modelos.
+  - Si el cliente existe pero OpenCode no responde, reconecta y vuelve a lanzar `opencode serve` cuando `autoStartServer` está activo.
+
 ## [1.0.45] - 2026-08-31
 
 ### Corrección — datos de UI no borrados al fallar OpenCode

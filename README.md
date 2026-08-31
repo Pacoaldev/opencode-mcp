@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.44-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.46-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -115,6 +115,14 @@ Además, el flujo de envio ahora incluye:
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.46</strong> — Auto-arranque de OpenCode más fiable</summary>
+
+- Si el servidor cae o no arrancó al abrir el IDE, al refrescar el panel se **reconecta** y vuelve a lanzar `opencode serve` (con `autoStartServer` activo).
+- Sigue cargando favoritos, costes y agente aunque OpenCode tarde en responder (desde v1.0.45).
+
+</details>
+
+<details>
 <summary><strong>v1.0.44</strong> — Catálogo de modelos y documentación de proveedores</summary>
 
 - **Listado de modelos fiable**: el selector usa solo el catálogo vivo de OpenCode (`GET /provider`). Eliminados modelos hardcodeados obsoletos (p. ej. Llama 3 en Replicate, Qwen 2.5 fijo, ElevenLabs TTS).
