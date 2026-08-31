@@ -140,6 +140,12 @@ export class OpenCodeService implements vscode.Disposable {
         };
     }
 
+    private shouldAttemptFailover(errMsg: string): boolean {
+        const diagnosis = this.diagnoseError(errMsg);
+        // ponytail: solo rotar keys ante rate-limit o 5xx del proveedor — no en auth/model/network
+        return diagnosis.category === 'rate_limit' || diagnosis.category === 'provider';
+    }
+
     private buildDiagnosedError(message: string): string {
         const diagnosis = this.diagnoseError(message);
         return `${message}\n\nDiagnostico: ${diagnosis.guidance}`;
@@ -556,11 +562,6 @@ export class OpenCodeService implements vscode.Disposable {
         }
         if (!this.client) {
             await this.connect();
-            return;
-        }
-        const health = await this.client.health();
-        if (!health.healthy) {
-            await this.reconnect();
         }
     }
 
@@ -743,7 +744,7 @@ export class OpenCodeService implements vscode.Disposable {
                 statusDetail: 'Enviando petición...'
             });
             await this.client.promptAsync(sessionId, {
-                agent: selectedAgent,
+                ...(selectedAgent ? { agent: selectedAgent } : {}),
                 model: parsedModel,
                 parts,
             });
@@ -1299,7 +1300,9 @@ export class OpenCodeService implements vscode.Disposable {
               const errMsg = typeof errorObj === 'string' 
                   ? errorObj 
                   : (errorObj?.data?.message || errorObj?.message || errorObj?.name || 'Error del proveedor');
-              const failedOver = await this.attemptFailover(errMsg);
+              const failedOver = this.shouldAttemptFailover(errMsg)
+                  ? await this.attemptFailover(errMsg)
+                  : false;
               if (failedOver) {
                   return;
               }

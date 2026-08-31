@@ -6,6 +6,23 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.48] - 2026-08-31
+
+### Corrección crítica — failover rompía todos los proveedores
+- **opencodeService.ts**:
+  - El failover solo se activa ante **429 / rate limit** o **errores 5xx** del proveedor (antes se disparaba con cualquier error, incluidos auth/modelo inválido).
+  - Deja de sobrescribir `auth.json` con claves de otro proveedor ante fallos que no son de cuota/servidor.
+  - `ensureCloudConnection` ya no hace `reconnect()` en cada listado de modelos (evitaba cortar peticiones en curso).
+  - No envía `agent: ""` vacío en `prompt_async`.
+
+## [1.0.47] - 2026-08-31
+
+### Conexión Windows — `spawn UNKNOWN` con OpenCode CLI
+- **serverProcess.ts**:
+  - Detecta `opencode.exe` stub/inválido (< 64 KB, sin cabecera PE) tras postinstall bloqueado por npm.
+  - Busca el binario real en paquetes `opencode-windows-*` o usa `npx opencode-ai` como fallback.
+  - Mensaje de error con comando de reparación: `npm install -g opencode-ai --allow-scripts=opencode-ai`.
+
 ## [1.0.46] - 2026-08-31
 
 ### Conexión — reintento de auto-arranque de OpenCode

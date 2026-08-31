@@ -16,36 +16,77 @@ export interface ManagedServer {
     close(): void;
 }
 
-function resolveOpencodeExecutable(): { command: string; spawnOptions?: SpawnOptions } {
+function isRealExecutable(filePath: string): boolean {
+    try {
+        const stat = fs.statSync(filePath);
+        if (!stat.isFile() || stat.size < 64 * 1024) {
+            return false;
+        }
+        const fd = fs.openSync(filePath, 'r');
+        const header = Buffer.alloc(2);
+        fs.readSync(fd, header, 0, 2, 0);
+        fs.closeSync(fd);
+        return header[0] === 0x4d && header[1] === 0x5a;
+    } catch {
+        return false;
+    }
+}
+
+function windowsOpencodeRoot(): string | undefined {
+    const appData = process.env.APPDATA;
+    if (!appData) {
+        return undefined;
+    }
+    return path.join(appData, 'npm', 'node_modules', 'opencode-ai');
+}
+
+function resolveWindowsBinary(): string | undefined {
+    const root = windowsOpencodeRoot();
+    if (!root) {
+        return undefined;
+    }
+    const candidates = [
+        path.join(root, 'bin', 'opencode.exe'),
+        path.join(root, 'node_modules', 'opencode-windows-x64', 'bin', 'opencode.exe'),
+        path.join(root, 'node_modules', 'opencode-windows-x64-baseline', 'bin', 'opencode.exe'),
+        path.join(root, 'node_modules', 'opencode-windows-arm64', 'bin', 'opencode.exe'),
+    ];
+    for (const candidate of candidates) {
+        if (isRealExecutable(candidate)) {
+            return candidate;
+        }
+    }
+    return undefined;
+}
+
+export function opencodeCliRepairHint(): string {
+    return (
+        'Reinstala el CLI de OpenCode: npm install -g opencode-ai --allow-scripts=opencode-ai ' +
+        '(npm puede bloquear el postinstall y dejar un opencode.exe inválido). ' +
+        'Luego configura opencode.bin con la ruta al ejecutable real si hace falta.'
+    );
+}
+
+function resolveOpencodeExecutable(): { command: string; argsPrefix: string[]; spawnOptions?: SpawnOptions } {
     const settingsBin = getSettingsBin();
     const envBin = settingsBin || process.env.OPENCODE_BIN;
-    if (envBin && fs.existsSync(envBin)) {
-        return { command: envBin };
+    if (envBin && isRealExecutable(envBin)) {
+        return { command: envBin, argsPrefix: [] };
     }
 
     if (process.platform === 'win32') {
-        const appData = process.env.APPDATA;
-        if (appData) {
-            const exe = path.join(
-                appData,
-                'npm',
-                'node_modules',
-                'opencode-ai',
-                'bin',
-                'opencode.exe'
-            );
-            if (fs.existsSync(exe)) {
-                return { command: exe };
-            }
-            const cmd = path.join(appData, 'npm', 'opencode.cmd');
-            if (fs.existsSync(cmd)) {
-                return { command: cmd, spawnOptions: { shell: true } };
-            }
+        const winBinary = resolveWindowsBinary();
+        if (winBinary) {
+            return { command: winBinary, argsPrefix: [] };
         }
-        return { command: 'opencode', spawnOptions: { shell: true } };
+        return {
+            command: 'npx',
+            argsPrefix: ['opencode-ai'],
+            spawnOptions: { shell: true },
+        };
     }
 
-    return { command: 'opencode' };
+    return { command: 'opencode', argsPrefix: [] };
 }
 
 export async function startOpencodeServer(
@@ -54,8 +95,9 @@ export async function startOpencodeServer(
     hostname = '127.0.0.1',
     timeoutMs = 20000
 ): Promise<ManagedServer> {
-    const args = ['serve', `--hostname=${hostname}`, `--port=${port}`];
-    const { command, spawnOptions } = resolveOpencodeExecutable();
+    const serveArgs = ['serve', `--hostname=${hostname}`, `--port=${port}`];
+    const { command, argsPrefix, spawnOptions } = resolveOpencodeExecutable();
+    const args = [...argsPrefix, ...serveArgs];
 
     const proc = spawn(command, args, {
         cwd: cwd || process.cwd(),
@@ -114,20 +156,24 @@ function waitForServerUrl(proc: ChildProcess, timeoutMs: number): Promise<string
             if (!settled) {
                 settled = true;
                 clearTimeout(timer);
-                reject(
-                    new Error(
-                        `${err.message}. Asegúrate de que opencode está en PATH o define OPENCODE_BIN.`
-                    )
-                );
+                const hint =
+                    err.message.includes('UNKNOWN') || err.message.includes('ENOENT')
+                        ? ` ${opencodeCliRepairHint()}`
+                        : ' Asegúrate de que opencode está en PATH o define OPENCODE_BIN.';
+                reject(new Error(`${err.message}.${hint}`));
             }
         });
         proc.on('exit', (code) => {
             if (!settled) {
                 settled = true;
                 clearTimeout(timer);
+                const stubHint =
+                    output.includes('not a valid application') || output.includes('UNKNOWN')
+                        ? ` ${opencodeCliRepairHint()}`
+                        : '';
                 reject(
                     new Error(
-                        `opencode serve terminó con código ${code}. ${output}`.trim()
+                        `opencode serve terminó con código ${code}. ${output}${stubHint}`.trim()
                     )
                 );
             }
@@ -142,7 +188,7 @@ function stopProcess(proc: ChildProcess): void {
             if (!proc.killed) {
                 try {
                     proc.kill('SIGKILL');
-                } catch (e) {
+                } catch {
                     // Ignore if process already dead
                 }
             }
