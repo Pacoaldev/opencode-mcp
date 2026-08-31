@@ -14,6 +14,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - **main.js**: al recibir error, elimina la burbuja de streaming vacía y vuelve a estado idle.
 - **chatViewProvider.ts**: evita duplicar el mensaje de error cuando ya lo mostró el stream.
 
+### Documentación — catálogo OpenCode y modelos EOL
+- **README.md**: nueva sección *Modelos retirados (EOL / 410 Gone)* con modelos a evitar, alternativas por proveedor (según [opencode.ai/docs/providers](https://opencode.ai/docs/providers) y catálogo `GET /provider`), y ejemplos de `blacklist`/`whitelist` para `~/.config/opencode/opencode.json`.
+- Aclaración: OpenCode 1.18.25 puede listar modelos ya retirados (p. ej. en **nvidia**); la extensión filtra y aprende EOL, el CLI requiere `blacklist` manual.
+- Tabla de solución de problemas ampliada para errores `410 Gone`.
+
 ## [1.0.50] - 2026-08-31
 
 ### Modelos EOL — caché dinámica y auto-reintento

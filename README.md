@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.46-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.51-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -115,6 +115,16 @@ Además, el flujo de envio ahora incluye:
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.51</strong> — Errores en el chat y modelos EOL</summary>
+
+- **Errores visibles al instante**: los `410 Gone` y mensajes `Gone:` aparecen en el chat sin recargar la ventana; se limpia la burbuja de streaming vacía.
+- **Modelos EOL** (`modelPolicy.ts`): blocklist inicial, caché dinámica de 410 en `globalState`, filtro en el selector, auto-cambio de modelo y un reintento del mensaje.
+- **Failover acotado** (v1.0.48): solo ante 429 o 5xx; ya no rota proveedores ante EOL o auth inválido.
+- **Documentación**: guía de modelos retirados y `blacklist`/`whitelist` en OpenCode (ver sección [Modelos retirados (EOL)](#modelos-retirados-eol-410-gone)).
+
+</details>
+
+<details>
 <summary><strong>v1.0.46</strong> — Auto-arranque de OpenCode más fiable</summary>
 
 - Si el servidor cae o no arrancó al abrir el IDE, al refrescar el panel se **reconecta** y vuelve a lanzar `opencode serve` (con `autoStartServer` activo).
@@ -372,7 +382,92 @@ Ejemplo (IDs = slugs de OpenCode):
 
 Ante HTTP 429 o errores 5xx, la extensión rota la key y reintenta; si no quedan keys en el proveedor actual, salta al siguiente con claves disponibles. El usuario ve mensaje de sistema, toast (primera vez) e indicador en la barra del modelo. Detalle en **Output → OpenCode Chat**.
 
-Guía de proveedores: [`docs/providers-de-opencode-lista-completa-revisado.md`](docs/providers-de-opencode-lista-completa-revisado.md).
+Guía de proveedores: [`docs/providers-de-opencode-lista-completa-revisado.md`](docs/providers-de-opencode-lista-completa-revisado.md). Documentación oficial de OpenCode: [opencode.ai/docs/providers](https://opencode.ai/docs/providers).
+
+---
+
+## Modelos retirados (EOL / 410 Gone)
+
+OpenCode **1.18.25** (y la extensión ≥ 1.0.49) listan modelos desde `GET /provider`. Ese catálogo **no siempre excluye modelos ya retirados** por Nvidia, DeepSeek, Z.AI, etc. La API responde `410 Gone` con `"has reached its end of life"`.
+
+Esto afecta al **CLI de OpenCode** y al **panel VS Code**: si el modelo sigue en `/provider`, aparece en `/models` aunque esté muerto.
+
+### Qué hace la extensión
+
+| Comportamiento | Detalle |
+|----------------|---------|
+| Filtro en selector | Oculta EOL conocidos y los aprendidos tras un 410 (persistidos en `globalState`) |
+| Sin failover en EOL | No rota API keys ni proveedor ante 410 |
+| Auto-recuperación | Cambia a un modelo del mismo proveedor (p. ej. `glm-5.3`, `nemotron-3-nano-30b-a3b`) y reintenta el mensaje una vez |
+| Validación al iniciar | Si el modelo guardado es EOL o legacy (`z-ai` → `zhipuai`), elige otro del catálogo |
+
+### Modelos EOL frecuentes (agosto 2026)
+
+Evítalos en CLI y extensión; suelen aparecer bajo **nvidia**, **deepseek**, **zhipuai**, **huggingface**, **openrouter**, **opencode** / **opencode-go**:
+
+- `nvidia/nemotron-nano-12b-v2-vl`, `nvidia/nemotron-mini-4b-instruct`
+- `deepseek-v4-flash` (y variantes `0731`, `vision-exp`)
+- `qwen/qwen3.5-122b-a10b`
+- `glm-5.2` / `z-ai/glm-5.2`
+
+### Alternativas recomendadas (documentación OpenCode + catálogo vivo)
+
+| Proveedor | Usar | Evitar |
+|-----------|------|--------|
+| **nvidia** | `nemotron-3-super-120b-a12b`, `nemotron-3-nano-30b-a3b`, `llama-3.3-nemotron-super-49b-v1` | mini-4b, nano-12b-v2-vl, deepseek-v4-flash en catálogo Nvidia |
+| **deepseek** | `deepseek-v4-pro` | `deepseek-v4-flash` |
+| **zhipuai** | `glm-5.3`, `glm-5`, `glm-4.7-flash` | `glm-5.2` |
+| **google** / **groq** / **mistral** / **minimax** / **moonshotai** | Modelos actuales del picker (p. ej. `gemini-2.5-flash-lite`, `llama-3.3-70b-versatile`, `MiniMax-M2.5`, `kimi-k2.5`) | — |
+| **opencode** (Zen) | `kimi-k3`, `claude-opus-4-7`, `deepseek-v4-pro` | `deepseek-v4-flash`, `glm-5.2` listados en Zen/Go |
+
+La página [Providers](https://opencode.ai/docs/providers) describe **proveedores**, no un catálogo garantizado al día. Para uso diario, OpenCode recomienda **Zen** o **Go** (modelos verificados) y `blacklist` / `whitelist` en `~/.config/opencode/opencode.json`.
+
+### Ocultar EOL en OpenCode CLI (`blacklist` / `whitelist`)
+
+Ejemplo para Nvidia (IDs tal como aparecen en `/models`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "nvidia": {
+      "blacklist": [
+        "nvidia/nemotron-nano-12b-v2-vl",
+        "nvidia/nemotron-mini-4b-instruct",
+        "deepseek-ai/deepseek-v4-flash",
+        "deepseek-ai/deepseek-v4-flash-0731",
+        "qwen/qwen3.5-122b-a10b",
+        "z-ai/glm-5.2"
+      ]
+    },
+    "deepseek": {
+      "blacklist": ["deepseek-v4-flash", "deepseek-v4-flash-vision-exp"]
+    },
+    "zhipuai": {
+      "blacklist": ["glm-5.2"]
+    }
+  }
+}
+```
+
+Whitelist más restrictiva (solo modelos citados en la docs de Nvidia):
+
+```json
+{
+  "provider": {
+    "nvidia": {
+      "whitelist": [
+        "nvidia/nemotron-3-super-120b-a12b",
+        "nvidia/nemotron-3-nano-30b-a3b",
+        "nvidia/llama-3.3-nemotron-super-49b-v1",
+        "nvidia/llama-3.1-nemotron-70b-instruct"
+      ]
+    }
+  }
+}
+```
+
+Tras editar `opencode.json`, reinicia `opencode serve` o recarga el panel de la extensión.
 
 ---
 
@@ -476,7 +571,7 @@ opencode-adapter.mjs    # Servidor MCP
 | Sigo viendo modelos cloud con LM Studio | Activa `localModeEnabled` (pestaña User), instala VSIX ≥ 1.0.27, recarga |
 | Modo local pero error al enviar | Comprueba que LM Studio esté corriendo y que `localModeUrl` coincida |
 | La IA no ve imágenes | Modelo con visión cargado en LM Studio; miniatura visible en barra de contexto |
-| Modelos que no responden / EOL | El listado sale de OpenCode en vivo; reconecta el proveedor con `/connect` y elige un modelo del catálogo actual |
+| Modelos que no responden / EOL (`410 Gone`) | No es un fallo de la extensión: OpenCode sigue listando modelos retirados en `/provider`. Usa otro modelo (tabla en [Modelos retirados](#modelos-retirados-eol-410-gone)), `blacklist` en `opencode.json`, o instala VSIX ≥ 1.0.51 para filtro y auto-cambio en el panel |
 | Cambios del repo no aparecen | Reinstala el `.vsix` compilado; Reload Window no lee el repo directamente |
 | Depurar envíos / failover | **View → Output → OpenCode Chat** |
 
