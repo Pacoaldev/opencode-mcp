@@ -6,6 +6,16 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.45] - 2026-08-31
+
+### Corrección — datos de UI no borrados al fallar OpenCode
+- **chatViewProvider.ts**:
+  - `refreshState` ya no aborta el `init` si OpenCode no responde (`fetch failed`). Costes, favoritos y proveedores ocultos se cargan siempre desde `globalState`.
+  - El agente seleccionado se persiste por workspace (`agent.<workspace>`) y deja de resetearse a `defaultAgent` en cada recarga.
+- **main.js**:
+  - El panel de costes y favoritos se renderiza aunque la lista de modelos esté vacía (servidor caído).
+  - Favoritos guardados visibles aunque el catálogo remoto no cargue.
+
 ## [1.0.44] - 2026-08-31
 
 ### Proveedores y catálogo de modelos

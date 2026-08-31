@@ -1419,23 +1419,36 @@ if (gitContextBtn) {
           }
         }
 
-        if (msg.favoritedModels) favoritedModels = msg.favoritedModels;
-        if (msg.hiddenProviders) hiddenProviders = msg.hiddenProviders;
-        if (msg.configuredProviders) configuredProviders = msg.configuredProviders;
-        if (msg.models && msg.models.length > 0) {
+        if (msg.favoritedModels) {
+          favoritedModels = msg.favoritedModels;
+        }
+        if (msg.hiddenProviders) {
+          hiddenProviders = msg.hiddenProviders;
+        }
+        if (msg.configuredProviders) {
+          configuredProviders = msg.configuredProviders;
+        }
+        if (msg.models) {
           allModels = msg.models;
           if (msg.selectedModel) {
             selectedModel = msg.selectedModel;
             const foundModel = msg.models.find(m => (typeof m === 'string' ? m : m.id) === selectedModel);
-            if (!foundModel) selectedModel = '';
+            if (!foundModel) {
+              selectedModel = '';
+            }
           }
-          if (!selectedModel) {
+          if (!selectedModel && msg.models.length > 0) {
             const first = msg.models[0];
             selectedModel = typeof first === 'string' ? first : first.id;
           }
-          renderModels();
-          renderProvidersToggle();
-          updateTopbarDisplay();
+        }
+        renderModels();
+        renderProvidersToggle();
+        updateTopbarDisplay();
+
+        if (msg.connectionWarning) {
+          appendMessage('system',
+            'OpenCode no responde (' + msg.connectionWarning + '). Favoritos y costes conservados.');
         }
 
         if (msg.contextWarnTokens !== undefined) contextWarnTokens = msg.contextWarnTokens;
@@ -1647,6 +1660,14 @@ case 'insertText':
       group.appendChild(modelsContainer);
       if (provsList) provsList.appendChild(group);
     });
+
+    if (renderedFavs === 0 && favoritedModels.length > 0 && favsList) {
+      favoritedModels.forEach((id) => {
+        const stub = { id, name: id.split('::').pop() || id, fullName: id };
+        favsList.appendChild(createModelItem(stub, true, true));
+        renderedFavs++;
+      });
+    }
 
     if (favsSection) favsSection.style.display = renderedFavs > 0 ? 'block' : 'none';
   }

@@ -549,10 +549,23 @@ export class OpenCodeService implements vscode.Disposable {
         void this.startEventSubscription();
     }
 
-    async listAgents(): Promise<Agent[]> {
+    private async ensureCloudConnection(): Promise<void> {
+        const settings = getOpenCodeSettings();
+        if (settings.localModeEnabled) {
+            return;
+        }
         if (!this.client) {
             await this.connect();
+            return;
         }
+        const health = await this.client.health();
+        if (!health.healthy) {
+            await this.reconnect();
+        }
+    }
+
+    async listAgents(): Promise<Agent[]> {
+        await this.ensureCloudConnection();
         if (!this.client) {
             return [];
         }
@@ -564,9 +577,7 @@ export class OpenCodeService implements vscode.Disposable {
         if (settings.localModeEnabled) {
             return this.listLMStudioModels();
         }
-        if (!this.client) {
-            await this.connect();
-        }
+        await this.ensureCloudConnection();
         if (!this.client) {
             return [];
         }

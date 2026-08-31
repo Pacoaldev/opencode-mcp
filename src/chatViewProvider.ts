@@ -3,6 +3,7 @@ import { readFolderAsParts } from './fileContext';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { execFile } from 'child_process';
 import { ContextAttachments } from './contextAttachments';
 import { estimateContextTokens, partCharSize, type ContextPriority } from './contextBudget';
@@ -19,6 +20,11 @@ import { MetricsCollector, type UsageMetrics } from './metricsCollector';
  */
 function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+function workspaceStorageKey(): string {
+    const dir = getWorkspaceDirectory();
+    return dir ? dir.toLowerCase() : 'global';
 }
 
 // Tamaños máximos en bytes
@@ -183,7 +189,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     async refreshState(): Promise<void> {
         await this.checkBranchChange();
         const settings = getOpenCodeSettings();
-        this.selectedAgent = settings.defaultAgent;
+        const persistedAgent = this.context.globalState.get<string>(`agent.${workspaceStorageKey()}`);
+        this.selectedAgent = persistedAgent || settings.defaultAgent;
+
         const localMode = {
             enabled: settings.localModeEnabled,
             url: settings.localModeUrl,
@@ -191,107 +199,122 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 ? await this.service.isLMStudioAvailable()
                 : false,
         };
-        try {
-            let agents: Awaited<ReturnType<OpenCodeService['listAgents']>> = [];
-            let models: Awaited<ReturnType<OpenCodeService['listModels']>> = [];
 
-            if (settings.localModeEnabled) {
+        let agents: Awaited<ReturnType<OpenCodeService['listAgents']>> = [];
+        let models: Awaited<ReturnType<OpenCodeService['listModels']>> = [];
+        const fetchWarnings: string[] = [];
+
+        if (settings.localModeEnabled) {
+            try {
                 models = await this.service.listModels();
-                if (!localMode.connected) {
-                    this.post({
-                        type: 'error',
-                        message:
-                            `Modo LM Studio activo pero no hay respuesta en ${settings.localModeUrl}. ` +
-                            'Inicia el servidor local en LM Studio.',
-                    });
-                } else if (models.length > 0) {
-                    const current = this.service.getSelectedModel();
-                    const valid = current && models.some((m) => m.id === current);
-                    if (!valid) {
-                        this.service.persistSelectedModel(models[0].id);
-                    }
+            } catch (error) {
+                fetchWarnings.push(getErrorMessage(error));
+            }
+            if (!localMode.connected) {
+                fetchWarnings.push(
+                    `Modo LM Studio activo pero no hay respuesta en ${settings.localModeUrl}. ` +
+                        'Inicia el servidor local en LM Studio.'
+                );
+            } else if (models.length > 0) {
+                const current = this.service.getSelectedModel();
+                const valid = current && models.some((m) => m.id === current);
+                if (!valid) {
+                    this.service.persistSelectedModel(models[0].id);
                 }
-            } else {
+            }
+        } else {
+            try {
                 agents = await this.service.listAgents();
+            } catch (error) {
+                fetchWarnings.push(getErrorMessage(error));
+            }
+            try {
                 models = await this.service.listModels();
+            } catch (error) {
+                fetchWarnings.push(getErrorMessage(error));
             }
-            const primary = agents.filter((a) => a.mode === 'primary' || a.mode === 'all');
-            const workspaceDir = getWorkspaceDirectory();
-            let gitInfo = null;
-            if (workspaceDir) {
-                gitInfo = await gitProvider.getGitInfo(workspaceDir);
-            }
-            
-            const sessionId = this.service.getSessionId() ?? '';
-            let parsedMessages: any[] = [];
-            if (sessionId) {
-                try {
-                    const messages = await this.service.listMessages(sessionId);
-                    parsedMessages = messages.map(m => {
-                        const hasError = !!m.info.error;
-                        return {
-                            role: hasError ? 'error' : m.info.role,
-                            text: hasError
-                                ? (typeof m.info.error === 'string' ? m.info.error : (m.info.error?.data?.message || m.info.error?.message || m.info.error?.name || 'Error del proveedor'))
-                                : partsToDisplayText(m.parts),
-                            metrics: m.info.tokens
-                        };
-                    });
-                } catch {
-                    // Ignore message load error
-                }
-            }
+        }
 
-                 let costData: Record<string, any> = JSON.parse(JSON.stringify(this.context.globalState.get('costData') || {}));
-                 let configuredProviders: string[] = [];
-                 try {
-                     const fs = require('fs');
-                     const os = require('os');
-                     const path = require('path');
-                     const authPath = process.env.OPENCODE_AUTH_PATH || path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json');
-                     if (fs.existsSync(authPath)) {
-                         const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-                         configuredProviders = Object.keys(auth).filter(k => auth[k] && auth[k].key);
-                     }
-                     // También comprobar secrets locales de fallback
-                     const apisJson = await this.context.secrets.get('opencode.apis');
-                     if (apisJson) {
-                         const apis = JSON.parse(apisJson);
-                         const fromSecrets = Object.keys(apis).filter(k => Array.isArray(apis[k]) && apis[k].length > 0);
-                         configuredProviders = [...new Set([...configuredProviders, ...fromSecrets])];
-                     }
-                 } catch (e) {
-                     // ignore
-                 }
+        const primary = agents.filter((a) => a.mode === 'primary' || a.mode === 'all');
+        const workspaceDir = getWorkspaceDirectory();
+        let gitInfo = null;
+        if (workspaceDir) {
+            gitInfo = await gitProvider.getGitInfo(workspaceDir);
+        }
 
-                  this.post({
-                      type: 'init',
-                      agents: primary.map((a) => ({
-                          name: a.name,
-                          description: a.description ?? '',
-                      })),
-                      models,
-                      favoritedModels: this.context.globalState.get<string[]>('favoritedModels') || [],
-                      hiddenProviders: this.context.globalState.get<string[]>('hiddenProviders') || [],
-                      configuredProviders,
-                      selectedAgent: this.selectedAgent,
-                      selectedModel: this.service.getSelectedModel(),
-                      context: this.contextAttachments.getDisplayItems(),
-                      contextTokens: this.contextAttachments.estimateTokens(),
-                      contextWarnTokens: settings.contextWarnTokens,
-                      contextHardWarnTokens: settings.contextHardWarnTokens,
-                      sessionId,
-                      messages: parsedMessages,
-                      quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
-                      costData,
-                      templates: this.context.workspaceState.get<Template[]>('templates') || [],
-                      gitInfo,
-                      localMode,
-                  });
-          } catch (error) {
-              const msg = getErrorMessage(error);
-              this.post({ type: 'error', message: msg });
-          }
+        const sessionId = this.service.getSessionId() ?? '';
+        let parsedMessages: any[] = [];
+        if (sessionId) {
+            try {
+                const messages = await this.service.listMessages(sessionId);
+                parsedMessages = messages.map(m => {
+                    const hasError = !!m.info.error;
+                    return {
+                        role: hasError ? 'error' : m.info.role,
+                        text: hasError
+                            ? (typeof m.info.error === 'string' ? m.info.error : (m.info.error?.data?.message || m.info.error?.message || m.info.error?.name || 'Error del proveedor'))
+                            : partsToDisplayText(m.parts),
+                        metrics: m.info.tokens
+                    };
+                });
+            } catch {
+                // ponytail: historial de sesión opcional si el servidor no responde
+            }
+        }
+
+        const costData: Record<string, any> = JSON.parse(
+            JSON.stringify(this.context.globalState.get('costData') || {})
+        );
+        let configuredProviders: string[] = [];
+        try {
+            const authPath = process.env.OPENCODE_AUTH_PATH || path.join(
+                os.homedir(),
+                '.local',
+                'share',
+                'opencode',
+                'auth.json'
+            );
+            if (fs.existsSync(authPath)) {
+                const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+                configuredProviders = Object.keys(auth).filter(k => auth[k] && auth[k].key);
+            }
+            const apisJson = await this.context.secrets.get('opencode.apis');
+            if (apisJson) {
+                const apis = JSON.parse(apisJson);
+                const fromSecrets = Object.keys(apis).filter(
+                    k => Array.isArray(apis[k]) && apis[k].length > 0
+                );
+                configuredProviders = [...new Set([...configuredProviders, ...fromSecrets])];
+            }
+        } catch {
+            // ignore
+        }
+
+        this.post({
+            type: 'init',
+            agents: primary.map((a) => ({
+                name: a.name,
+                description: a.description ?? '',
+            })),
+            models,
+            favoritedModels: this.context.globalState.get<string[]>('favoritedModels') || [],
+            hiddenProviders: this.context.globalState.get<string[]>('hiddenProviders') || [],
+            configuredProviders,
+            selectedAgent: this.selectedAgent,
+            selectedModel: this.service.getSelectedModel(),
+            context: this.contextAttachments.getDisplayItems(),
+            contextTokens: this.contextAttachments.estimateTokens(),
+            contextWarnTokens: settings.contextWarnTokens,
+            contextHardWarnTokens: settings.contextHardWarnTokens,
+            sessionId,
+            messages: parsedMessages,
+            quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
+            costData,
+            templates: this.context.workspaceState.get<Template[]>('templates') || [],
+            gitInfo,
+            localMode,
+            connectionWarning: fetchWarnings.length > 0 ? fetchWarnings[0] : undefined,
+        });
     }
 
     getContextAttachments(): ContextAttachments {
@@ -695,6 +718,10 @@ private async handleSendMessage(message: any): Promise<void> {
 
      private handleSetAgentMessage(message: any): void {
          this.selectedAgent = message.agent ?? '';
+         void this.context.globalState.update(
+             `agent.${workspaceStorageKey()}`,
+             this.selectedAgent || undefined
+         );
      }
 
      private handleSetModelMessage(message: any): void {
