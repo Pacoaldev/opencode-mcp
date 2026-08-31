@@ -7,6 +7,8 @@ const KNOWN_EOL_MODEL_IDS = new Set([
     'z-ai::z-ai/glm-5.2',
     'nvidia/nemotron-nano-12b-v2-vl',
     'nvidia::nvidia/nemotron-nano-12b-v2-vl',
+    'microsoft/phi-4-multimodal-instruct',
+    'nvidia::microsoft/phi-4-multimodal-instruct',
 ]);
 
 const LEGACY_PROVIDER_ALIASES: Record<string, string> = {

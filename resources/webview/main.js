@@ -1495,7 +1495,20 @@ if (gitContextBtn) {
         }
         break;
        case 'assistantDone':
-         finishStream(msg.text, msg.metrics);
+         if (!msg.text?.trim()) {
+           if (streamingNode) {
+             streamingNode.remove();
+           }
+           streamingNode = null;
+           streamingBodyNode = null;
+           streamingMetaNode = null;
+           appendMessage(
+             'error',
+             'El modelo no devolvió respuesta. Prueba otro modelo o selecciona un agente (@Experto).'
+           );
+         } else {
+           finishStream(msg.text, msg.metrics);
+         }
          setStatus('idle');
          if (msg.metrics) {
            const today = new Date().toISOString().split('T')[0];

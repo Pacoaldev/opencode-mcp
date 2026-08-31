@@ -96,6 +96,8 @@ export class OpenCodeService implements vscode.Disposable {
     } | undefined;
     private failoverIndices: Map<string, number> = new Map();
     private eolAutoRetried = false;
+    private promptWatchdogs = new Map<string, NodeJS.Timeout>();
+    private finalizingSessions = new Set<string>();
     private readonly securityManager = new SecurityManager();
     private static readonly EOL_MODELS_STATE_KEY = 'eolModelIds';
 
@@ -271,11 +273,12 @@ export class OpenCodeService implements vscode.Disposable {
     }
 
     private async handleTimeout(sessionId: string): Promise<void> {
-        if (!this.activeStream.has(sessionId)) {
+        if (!this.activeStream.has(sessionId) && !this.pendingPrompts.has(sessionId)) {
             return;
         }
         const text = this.activeStream.get(sessionId) ?? '';
         this.activeStream.delete(sessionId);
+        this.stopPromptWatchdog(sessionId);
         this.abortSession(true).catch(err => {
             console.error('[Timeout] Error al abortar la sesión:', err);
         });
@@ -286,6 +289,46 @@ export class OpenCodeService implements vscode.Disposable {
             error: 'La petición tardó demasiado y fue cancelada automáticamente (timeout de 3m).',
             statusDetail: 'Timeout de 3 minutos alcanzado.'
         });
+    }
+
+    private startPromptWatchdog(sessionId: string): void {
+        this.stopPromptWatchdog(sessionId);
+        const timer = setInterval(() => {
+            void this.pollPromptCompletion(sessionId);
+        }, 2000);
+        this.promptWatchdogs.set(sessionId, timer);
+    }
+
+    private stopPromptWatchdog(sessionId: string): void {
+        const timer = this.promptWatchdogs.get(sessionId);
+        if (timer) {
+            clearInterval(timer);
+            this.promptWatchdogs.delete(sessionId);
+        }
+    }
+
+    private async pollPromptCompletion(sessionId: string): Promise<void> {
+        if (!this.client || !this.pendingPrompts.has(sessionId)) {
+            this.stopPromptWatchdog(sessionId);
+            return;
+        }
+        try {
+            const messages = await this.client.listMessages(sessionId);
+            const lastAssistant = [...messages]
+                .reverse()
+                .find((m) => m.info.role === 'assistant');
+            if (!lastAssistant) {
+                return;
+            }
+            const text = partsToDisplayText(lastAssistant.parts);
+            const completed = lastAssistant.info.time?.completed;
+            if (!lastAssistant.info.error && !text.trim() && !completed) {
+                return;
+            }
+            await this.finalizePromptSession(sessionId, undefined, lastAssistant);
+        } catch {
+            // ponytail: polling is best-effort when SSE idle is missed
+        }
     }
 
     onStream(listener: (update: StreamUpdate) => void): vscode.Disposable {
@@ -319,6 +362,7 @@ export class OpenCodeService implements vscode.Disposable {
             listener(update);
         }
         if (update.done) {
+            this.stopPromptWatchdog(update.sessionId);
             const pending = this.pendingPrompts.get(update.sessionId);
             if (pending) {
                 this.pendingPrompts.delete(update.sessionId);
@@ -786,6 +830,11 @@ export class OpenCodeService implements vscode.Disposable {
             });
         }
 
+        if (model && modelIdIsKnownEol(model)) {
+            await this.handleModelEolError(`Gone: Model ${model} is no longer available (EOL).`);
+            return completion;
+        }
+
         try {
             this.resetTimeout(sessionId);
             this.emitStream({
@@ -800,6 +849,8 @@ export class OpenCodeService implements vscode.Disposable {
                 parts,
             });
 
+            this.startPromptWatchdog(sessionId);
+
             if (isFailover) {
                 return;
             }
@@ -807,6 +858,7 @@ export class OpenCodeService implements vscode.Disposable {
          } catch (error) {
              this.clearTimeout();
              this.activeStream.delete(sessionId);
+             this.stopPromptWatchdog(sessionId);
              const message = getErrorMessage(error);
              this.securityManager.auditApiCall('/session/prompt_async', 'send_prompt', 'failure', {
                  sessionId,
@@ -1350,62 +1402,101 @@ export class OpenCodeService implements vscode.Disposable {
           }
       }
 
+      private async finalizePromptSession(
+          sessionId: string,
+          idleProps?: { error?: unknown },
+          cachedAssistant?: SessionMessage
+      ): Promise<void> {
+          if (this.finalizingSessions.has(sessionId)) {
+              return;
+          }
+          if (!this.activeStream.has(sessionId) && !this.pendingPrompts.has(sessionId)) {
+              return;
+          }
+
+          this.finalizingSessions.add(sessionId);
+          try {
+              if (!this.client) {
+                  return;
+              }
+
+              let lastAssistant = cachedAssistant;
+              if (!lastAssistant) {
+                  const messages = await this.client.listMessages(sessionId);
+                  lastAssistant = [...messages]
+                      .reverse()
+                      .find((m) => m.info.role === 'assistant');
+              }
+
+              const text = lastAssistant ? partsToDisplayText(lastAssistant.parts) : '';
+
+              this.clearTimeout();
+              this.activeStream.delete(sessionId);
+              this.stopPromptWatchdog(sessionId);
+
+              let streamError = this.extractStreamError(idleProps, lastAssistant, text);
+              if (!streamError && lastAssistant && !text.trim()) {
+                  const completed = lastAssistant.info.time?.completed;
+                  if (completed || lastAssistant.info.error) {
+                      streamError =
+                          'El modelo no devolvió respuesta (respuesta vacía). Elige otro modelo de chat o revisa la API key del proveedor.';
+                  }
+              }
+
+              if (streamError) {
+                  const errMsg = streamError;
+                  if (isModelEolMessage(errMsg)) {
+                      await this.handleModelEolError(errMsg);
+                      return;
+                  }
+                  const failedOver = this.shouldAttemptFailover(errMsg)
+                      ? await this.attemptFailover(errMsg)
+                      : false;
+                  if (failedOver) {
+                      return;
+                  }
+
+                  logSse('stream_error', truncate(errMsg));
+                  this.emitStream({
+                      sessionId,
+                      text: '',
+                      done: true,
+                      error: this.buildDiagnosedError(errMsg),
+                      statusDetail: 'Finalizado con error.',
+                  });
+              } else {
+                  logSse('stream_end', `session=${sessionId}`);
+                  this.emitStream({
+                      sessionId,
+                      text,
+                      done: true,
+                      metrics: lastAssistant?.info?.tokens,
+                      statusDetail: 'Listo.',
+                  });
+              }
+          } finally {
+              this.finalizingSessions.delete(sessionId);
+          }
+      }
+
       private async handleSessionIdleEvent(event: ServerEvent): Promise<void> {
           const sessionId = this.sessionId;
           if (!sessionId || !this.client) {
               return;
           }
 
-          const props = event.properties as { sessionID?: string; error?: any } | undefined;
+          const props = event.properties as { sessionID?: string; error?: unknown } | undefined;
           if (props?.sessionID !== sessionId) {
               return;
           }
 
           this.resetTimeout(sessionId);
 
-          const awaitingReply =
-              this.activeStream.has(sessionId) || this.pendingPrompts.has(sessionId);
-          if (!awaitingReply) {
+          if (!this.activeStream.has(sessionId) && !this.pendingPrompts.has(sessionId)) {
               return;
           }
-          const messages = await this.client.listMessages(sessionId);
-          const lastAssistant = [...messages]
-              .reverse()
-              .find((m) => m.info.role === 'assistant');
-          
-          const text = lastAssistant
-              ? partsToDisplayText(lastAssistant.parts)
-              : '';
-              
-          this.clearTimeout();
-          this.activeStream.delete(sessionId);
 
-          const streamError = this.extractStreamError(props, lastAssistant, text);
-          if (streamError) {
-              const errMsg = streamError;
-              if (isModelEolMessage(errMsg)) {
-                  await this.handleModelEolError(errMsg);
-                  return;
-              }
-              const failedOver = this.shouldAttemptFailover(errMsg)
-                  ? await this.attemptFailover(errMsg)
-                  : false;
-              if (failedOver) {
-                  return;
-              }
-
-              logSse('stream_error', truncate(errMsg));
-              this.emitStream({
-                  sessionId,
-                  text: '',
-                  done: true,
-                  error: this.buildDiagnosedError(errMsg),
-                  statusDetail: 'Finalizado con error.'
-              });
-          } else {
-              logSse('stream_end', `session=${sessionId}`);
-              this.emitStream({ sessionId, text, done: true, metrics: lastAssistant?.info?.tokens, statusDetail: 'Listo.' });
-           }
+          await this.finalizePromptSession(sessionId, props);
        }
 
        private async handlePermissionUpdatedEvent(event: ServerEvent): Promise<void> {
@@ -1431,6 +1522,7 @@ export class OpenCodeService implements vscode.Disposable {
 
         this.clearTimeout();
         this.activeStream.delete(sessionId);
+        this.stopPromptWatchdog(sessionId);
 
         const current = this.lastPromptInfo?.model || this.getSelectedModel();
         const eolRef = extractModelRefFromEolError(errMsg);

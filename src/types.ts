@@ -32,6 +32,9 @@ export interface MessageInfo {
             responseBody?: string;
         };
     };
+    time?: {
+        completed?: number;
+    };
 }
 
 export type TextPartInput = {

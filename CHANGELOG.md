@@ -6,6 +6,16 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.52] - 2026-08-31
+
+### Chat silencioso — errores sin Reload Window
+- **opencodeService.ts**: watchdog que consulta mensajes cada 2s si SSE `session.idle` no llega; `finalizePromptSession` unifica cierre de petición (idle + polling).
+- Respuesta vacía del asistente se trata como error visible en el chat.
+- Timeout también cancela cuando solo queda `pendingPrompts` (sin burbuja de stream).
+- Bloqueo inmediato de modelos EOL conocidos (p. ej. `microsoft/phi-4-multimodal-instruct`) antes de llamar a la API.
+- **main.js**: si `assistantDone` llega sin texto, muestra error en lugar de dejar el chat en blanco.
+- **chatViewProvider.ts**: agente por defecto con `.trim()` para no perder `@Experto` por cadenas vacías.
+
 ## [1.0.51] - 2026-08-31
 
 ### Errores en el chat sin recargar

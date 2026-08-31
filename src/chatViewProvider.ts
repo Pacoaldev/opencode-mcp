@@ -683,7 +683,7 @@ private async handleSendMessage(message: any): Promise<void> {
           if (!text && attachments.length === 0) {
               return;
           }
-          const agent = message.agent || this.selectedAgent || undefined;
+          const agent = message.agent?.trim() || this.selectedAgent?.trim() || undefined;
           const model = message.model || this.service.getSelectedModel() || undefined;
           const contextParts = [...this.contextAttachments.getItems()];
           const ok = await this.guardContextBudget(text || '', contextParts, attachments);
