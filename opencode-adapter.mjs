@@ -23,7 +23,9 @@ async function ensureServerRunning() {
     const res = await fetch('http://127.0.0.1:4096/global/health');
     if (res.ok) {
       const data = await res.json();
-      if (data.healthy) return;
+      if (data.healthy) {
+        return;
+      }
     }
   } catch (e) {
     // server is down, start it
@@ -43,7 +45,9 @@ async function ensureServerRunning() {
       const res = await fetch('http://127.0.0.1:4096/global/health');
       if (res.ok) {
         const data = await res.json();
-        if (data.healthy) return;
+        if (data.healthy) {
+        return;
+      }
       }
     } catch (e) {
       // ignore
@@ -114,17 +118,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         while (!controller.signal.aborted) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            break;
+          }
           buffer += decoder.decode(value, { stream: true });
           const chunks = buffer.split('\n\n');
           buffer = chunks.pop() ?? '';
 
           for (const chunk of chunks) {
             const dataLine = chunk.split('\n').find((l) => l.startsWith('data:'));
-            if (!dataLine) continue;
+            if (!dataLine) {
+              continue;
+            }
 
             const json = dataLine.replace(/^data:\s*/, '');
-            if (!json || json === '[DONE]') continue;
+            if (!json || json === '[DONE]') {
+              continue;
+            }
 
             try {
               const event = JSON.parse(json);
