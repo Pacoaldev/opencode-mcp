@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.53] - 2026-08-31
+
+### Publicación
+- Sincronización de versión en `package.json`, `package-lock.json` y documentación para publicar en Marketplace / Open VSX.
+- Incluye los arreglos de **1.0.52** (watchdog de chat, errores sin Reload Window, blocklist Phi 4 Multimodal).
+
 ## [1.0.52] - 2026-08-31
 
 ### Chat silencioso — errores sin Reload Window

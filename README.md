@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.51-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.53-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -115,6 +115,16 @@ Además, el flujo de envio ahora incluye:
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.53</strong> — Chat sin silencios y publicación</summary>
+
+- **Watchdog de chat** (v1.0.52): si SSE no avisa, consulta mensajes cada 2s y muestra errores sin *Reload Window*.
+- **Respuesta vacía = error** visible; bloqueo inmediato de modelos EOL (p. ej. Phi 4 Multimodal).
+- **Agente @Experto** preservado aunque el webview envíe cadena vacía.
+- Versión alineada en lockfile y docs para publicar en Marketplace / Open VSX.
+
+</details>
+
+<details>
 <summary><strong>v1.0.51</strong> — Errores en el chat y modelos EOL</summary>
 
 - **Errores visibles al instante**: los `410 Gone` y mensajes `Gone:` aparecen en el chat sin recargar la ventana; se limpia la burbuja de streaming vacía.
@@ -275,7 +285,7 @@ npm run package
 Luego:
 
 - **VS Code / Cursor:** `Ctrl+Shift+P` → **Extensions: Install from VSIX...**
-- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.41.vsix --force`
+- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.53.vsix --force`
 
 > **Importante:** *Reload Window* carga la extensión **instalada**, no el código fuente del repo. Tras instalar un VSIX nuevo, recarga la ventana una vez.
 
@@ -571,7 +581,7 @@ opencode-adapter.mjs    # Servidor MCP
 | Sigo viendo modelos cloud con LM Studio | Activa `localModeEnabled` (pestaña User), instala VSIX ≥ 1.0.27, recarga |
 | Modo local pero error al enviar | Comprueba que LM Studio esté corriendo y que `localModeUrl` coincida |
 | La IA no ve imágenes | Modelo con visión cargado en LM Studio; miniatura visible en barra de contexto |
-| Modelos que no responden / EOL (`410 Gone`) | No es un fallo de la extensión: OpenCode sigue listando modelos retirados en `/provider`. Usa otro modelo (tabla en [Modelos retirados](#modelos-retirados-eol-410-gone)), `blacklist` en `opencode.json`, o instala VSIX ≥ 1.0.51 para filtro y auto-cambio en el panel |
+| Modelos que no responden / EOL (`410 Gone`) | No es un fallo de la extensión: OpenCode sigue listando modelos retirados en `/provider`. Usa otro modelo (tabla en [Modelos retirados](#modelos-retirados-eol-410-gone)), `blacklist` en `opencode.json`, o instala VSIX ≥ 1.0.53 para filtro, watchdog de errores y auto-cambio en el panel |
 | Cambios del repo no aparecen | Reinstala el `.vsix` compilado; Reload Window no lee el repo directamente |
 | Depurar envíos / failover | **View → Output → OpenCode Chat** |
 
