@@ -1520,10 +1520,14 @@ if (gitContextBtn) {
         appendMessage('system', msg.text);
         break;
       case 'error':
-        appendMessage('error', msg.message);
+        if (streamingNode) {
+          streamingNode.remove();
+        }
         streamingNode = null;
         streamingBodyNode = null;
         streamingMetaNode = null;
+        appendMessage('error', msg.message);
+        setStatus('idle');
         break;
 case 'context':
          renderContextItems(msg.items || msg.context || []);

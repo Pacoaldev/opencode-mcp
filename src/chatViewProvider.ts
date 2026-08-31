@@ -9,6 +9,7 @@ import { ContextAttachments } from './contextAttachments';
 import { estimateContextTokens, partCharSize, type ContextPriority } from './contextBudget';
 import { partsToDisplayText } from './parts';
 import { OpenCodeService } from './opencodeService';
+import { modelIdIsKnownEol, looksLikeProviderErrorText } from './modelPolicy';
 import { getOpenCodeSettings, getWorkspaceDirectory } from './settings';
 import { PromptPart, Template } from './types';
 import { gitProvider } from './gitProvider';
@@ -53,6 +54,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         service.onStream((update) => {
             if (update.systemMessage) {
                 this.post({ type: 'system', text: update.systemMessage });
+            }
+            if (update.selectedModel) {
+                this.post({ type: 'setModel', model: update.selectedModel });
             }
             if (update.failover) {
                 const f = update.failover;
@@ -247,12 +251,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             try {
                 const messages = await this.service.listMessages(sessionId);
                 parsedMessages = messages.map(m => {
-                    const hasError = !!m.info.error;
+                    const body = partsToDisplayText(m.parts);
+                    const hasError = !!m.info.error || looksLikeProviderErrorText(body);
                     return {
                         role: hasError ? 'error' : m.info.role,
                         text: hasError
-                            ? (typeof m.info.error === 'string' ? m.info.error : (m.info.error?.data?.message || m.info.error?.message || m.info.error?.name || 'Error del proveedor'))
-                            : partsToDisplayText(m.parts),
+                            ? (m.info.error
+                                ? (typeof m.info.error === 'string' ? m.info.error : (m.info.error?.data?.message || m.info.error?.message || m.info.error?.name || body || 'Error del proveedor'))
+                                : body)
+                            : body,
                         metrics: m.info.tokens
                     };
                 });
@@ -289,6 +296,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             // ignore
         }
 
+        let favoritedModels = this.context.globalState.get<string[]>('favoritedModels') || [];
+        const prunedFavorites = favoritedModels.filter((id) => !modelIdIsKnownEol(id));
+        if (prunedFavorites.length !== favoritedModels.length) {
+            favoritedModels = prunedFavorites;
+            await this.context.globalState.update('favoritedModels', favoritedModels);
+        }
+
         this.post({
             type: 'init',
             agents: primary.map((a) => ({
@@ -296,7 +310,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 description: a.description ?? '',
             })),
             models,
-            favoritedModels: this.context.globalState.get<string[]>('favoritedModels') || [],
+            favoritedModels,
             hiddenProviders: this.context.globalState.get<string[]>('hiddenProviders') || [],
             configuredProviders,
             selectedAgent: this.selectedAgent,
@@ -701,7 +715,10 @@ private async handleSendMessage(message: any): Promise<void> {
            } catch (error) {
                isError = true;
                const msg = getErrorMessage(error);
-               this.post({ type: 'error', message: msg });
+               // Errores de stream ya los pinta onStream (incluye "Diagnostico:").
+               if (!msg.includes('Diagnostico:')) {
+                   this.post({ type: 'error', message: msg });
+               }
                this.post({ type: 'status', state: 'idle' });
                
                // Record error metrics

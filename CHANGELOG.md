@@ -6,6 +6,23 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.51] - 2026-08-31
+
+### Errores en el chat sin recargar
+- **opencodeService.ts**: `session.idle` ya no se ignora si el stream se vació pero la petición sigue pendiente; detecta `Gone:` / 410 en el texto del asistente.
+- La promesa de envío se registra antes de `prompt_async` (reintentos EOL no dejan el chat colgado).
+- **main.js**: al recibir error, elimina la burbuja de streaming vacía y vuelve a estado idle.
+- **chatViewProvider.ts**: evita duplicar el mensaje de error cuando ya lo mostró el stream.
+
+## [1.0.50] - 2026-08-31
+
+### Modelos EOL — caché dinámica y auto-reintento
+- **modelPolicy.ts**: blocklist inicial con `nvidia/nemotron-nano-12b-v2-vl`; cualquier 410 aprendido se guarda en `globalState` y se filtra del listado.
+- Normaliza IDs (`nvidia::nvidia/foo` ↔ `nvidia/foo`) para detectar EOL aunque el error use otro formato.
+- Fallback Nvidia → `nemotron-3-nano-30b-a3b` (u otro Nemotron disponible).
+- **opencodeService.ts**: al recibir 410, registra el modelo, cambia selección y **reintenta el mensaje** una vez con modelo válido.
+- **chatViewProvider.ts**: actualiza el selector al cambiar modelo; limpia favoritos EOL.
+
 ## [1.0.49] - 2026-08-31
 
 ### Modelos EOL (410 Gone) — p. ej. `z-ai/glm-5.2`

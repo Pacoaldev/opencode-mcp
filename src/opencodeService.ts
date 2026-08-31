@@ -17,8 +17,12 @@ import { LocalSessionManager } from './localSessionManager';
 import { SecurityManager } from './securityManager';
 import {
     extractModelRefFromEolError,
+    getRuntimeEolModelsForPersistence,
     isModelEolMessage,
+    loadRuntimeEolModels,
+    looksLikeProviderErrorText,
     modelIdIsKnownEol,
+    rememberEolModel,
     resolveSelectedModel,
 } from './modelPolicy';
 import {
@@ -60,6 +64,7 @@ export interface StreamUpdate {
     statusDetail?: string;
     failover?: FailoverInfo;
     systemMessage?: string;
+    selectedModel?: string;
 }
 
 export class OpenCodeService implements vscode.Disposable {
@@ -90,7 +95,9 @@ export class OpenCodeService implements vscode.Disposable {
         attachments: PromptPart[];
     } | undefined;
     private failoverIndices: Map<string, number> = new Map();
+    private eolAutoRetried = false;
     private readonly securityManager = new SecurityManager();
+    private static readonly EOL_MODELS_STATE_KEY = 'eolModelIds';
 
     private diagnoseError(message: string): {
         category: 'network' | 'timeout' | 'auth' | 'rate_limit' | 'provider' | 'model_eol' | 'unknown';
@@ -345,6 +352,13 @@ export class OpenCodeService implements vscode.Disposable {
         return resolved ?? current;
     }
 
+    private async persistEolModels(): Promise<void> {
+        await OpenCodeService.extensionContext?.globalState.update(
+            OpenCodeService.EOL_MODELS_STATE_KEY,
+            getRuntimeEolModelsForPersistence()
+        );
+    }
+
     getSelectedModel(): string | undefined {
         const key = `model.${this.workspaceKey()}`;
         return OpenCodeService.extensionContext?.globalState.get<string>(key);
@@ -500,6 +514,9 @@ export class OpenCodeService implements vscode.Disposable {
 
     async initialize(context: vscode.ExtensionContext): Promise<void> {
         OpenCodeService.extensionContext = context;
+        loadRuntimeEolModels(
+            context.globalState.get<string[]>(OpenCodeService.EOL_MODELS_STATE_KEY) ?? []
+        );
         this.localSessionManager = new LocalSessionManager(context);
         this.securityManager.setExtensionContext(context);
         const storageKey = await this.getSessionStateKey();
@@ -701,6 +718,7 @@ export class OpenCodeService implements vscode.Disposable {
 
         if (!isFailover) {
             this.lastPromptInfo = { text, agent, model, contextParts, attachments };
+            this.eolAutoRetried = false;
         }
 
         // ponytail: modo local — todo va directo a LM Studio sin tocar OpenCode
@@ -760,6 +778,14 @@ export class OpenCodeService implements vscode.Disposable {
             }
         }
 
+        const shouldTrackCompletion = !isFailover || !this.pendingPrompts.has(sessionId);
+        let completion: Promise<void> | undefined;
+        if (shouldTrackCompletion) {
+            completion = new Promise<void>((resolve, reject) => {
+                this.pendingPrompts.set(sessionId, { resolve, reject });
+            });
+        }
+
         try {
             this.resetTimeout(sessionId);
             this.emitStream({
@@ -774,9 +800,10 @@ export class OpenCodeService implements vscode.Disposable {
                 parts,
             });
 
-            return new Promise<void>((resolve, reject) => {
-                this.pendingPrompts.set(sessionId, { resolve, reject });
-            });
+            if (isFailover) {
+                return;
+            }
+            return completion!;
          } catch (error) {
              this.clearTimeout();
              this.activeStream.delete(sessionId);
@@ -787,7 +814,7 @@ export class OpenCodeService implements vscode.Disposable {
              });
              if (isModelEolMessage(message)) {
                  await this.handleModelEolError(message);
-                 return;
+                 return completion;
              }
              if (!isFailover) {
                  const recovered = await this.tryAutomaticRecoveryFromSendError(
@@ -809,8 +836,35 @@ export class OpenCodeService implements vscode.Disposable {
                  done: true,
                  error: this.buildDiagnosedError(message),
              });
-            throw error;
+            return;
         }
+    }
+
+    private extractStreamError(
+        props: { error?: unknown } | undefined,
+        lastAssistant: SessionMessage | undefined,
+        assistantText: string
+    ): string | undefined {
+        if (props?.error) {
+            const errorObj = props.error;
+            return typeof errorObj === 'string'
+                ? errorObj
+                : ((errorObj as { data?: { message?: string }; message?: string; name?: string })
+                      ?.data?.message ||
+                      (errorObj as { message?: string })?.message ||
+                      (errorObj as { name?: string })?.name ||
+                      'Error del proveedor');
+        }
+        if (lastAssistant?.info?.error) {
+            const errorObj = lastAssistant.info.error;
+            return typeof errorObj === 'string'
+                ? errorObj
+                : (errorObj?.data?.message || errorObj?.message || errorObj?.name || 'Error del proveedor');
+        }
+        if (looksLikeProviderErrorText(assistantText)) {
+            return assistantText;
+        }
+        return undefined;
     }
 
     private emitFailoverStatus(
@@ -1309,7 +1363,9 @@ export class OpenCodeService implements vscode.Disposable {
 
           this.resetTimeout(sessionId);
 
-          if (!this.activeStream.has(sessionId)) {
+          const awaitingReply =
+              this.activeStream.has(sessionId) || this.pendingPrompts.has(sessionId);
+          if (!awaitingReply) {
               return;
           }
           const messages = await this.client.listMessages(sessionId);
@@ -1323,12 +1379,10 @@ export class OpenCodeService implements vscode.Disposable {
               
           this.clearTimeout();
           this.activeStream.delete(sessionId);
-          
-          if (props?.error || lastAssistant?.info?.error) {
-              const errorObj = props?.error || lastAssistant?.info?.error;
-              const errMsg = typeof errorObj === 'string' 
-                  ? errorObj 
-                  : (errorObj?.data?.message || errorObj?.message || errorObj?.name || 'Error del proveedor');
+
+          const streamError = this.extractStreamError(props, lastAssistant, text);
+          if (streamError) {
+              const errMsg = streamError;
               if (isModelEolMessage(errMsg)) {
                   await this.handleModelEolError(errMsg);
                   return;
@@ -1380,8 +1434,11 @@ export class OpenCodeService implements vscode.Disposable {
 
         const current = this.lastPromptInfo?.model || this.getSelectedModel();
         const eolRef = extractModelRefFromEolError(errMsg);
-        let replacement: string | undefined;
+        rememberEolModel(eolRef);
+        rememberEolModel(current);
+        await this.persistEolModels();
 
+        let replacement: string | undefined;
         try {
             const models = await this.listModels();
             replacement = resolveSelectedModel(models, current);
@@ -1389,14 +1446,40 @@ export class OpenCodeService implements vscode.Disposable {
                 this.persistSelectedModel(replacement);
             }
         } catch {
-            // ponytail: sin catálogo solo limpiamos selección EOL conocida
             if (current && (modelIdIsKnownEol(current) || (eolRef && current.includes(eolRef)))) {
                 this.persistSelectedModel('');
             }
         }
 
+        if (
+            replacement &&
+            replacement !== current &&
+            this.lastPromptInfo &&
+            !this.eolAutoRetried
+        ) {
+            this.eolAutoRetried = true;
+            this.activeStream.set(sessionId, '');
+            this.emitStream({
+                sessionId,
+                text: '',
+                done: false,
+                systemMessage: `Modelo retirado (EOL). Reintentando con ${replacement}…`,
+                selectedModel: replacement,
+                statusDetail: 'Cambiando modelo EOL…',
+            });
+            await this.sendPrompt(
+                this.lastPromptInfo.text,
+                this.lastPromptInfo.agent,
+                replacement,
+                this.lastPromptInfo.contextParts,
+                this.lastPromptInfo.attachments,
+                true
+            );
+            return;
+        }
+
         const detail = replacement && replacement !== current
-            ? `Modelo EOL. Cambiado automaticamente a ${replacement}. Vuelve a enviar el mensaje.`
+            ? `Modelo EOL. Cambiado a ${replacement}. Vuelve a enviar el mensaje.`
             : 'Modelo EOL o retirado. Elige otro modelo en el selector y reenvia.';
 
         logSse('stream_error', truncate(errMsg));
@@ -1406,6 +1489,7 @@ export class OpenCodeService implements vscode.Disposable {
             done: true,
             error: this.buildDiagnosedError(errMsg),
             systemMessage: detail,
+            selectedModel: replacement,
             statusDetail: 'Modelo no disponible (EOL).',
         });
        }
