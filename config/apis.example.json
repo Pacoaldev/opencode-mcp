@@ -1,9 +1,7 @@
 {
-  "openai": [
-    "sk-proj-...",
-    "sk-proj-..."
-  ],
+  "openai": [],
   "anthropic": [],
+  "google": [],
   "groq": [],
   "openrouter": [],
   "huggingface": [],
@@ -12,5 +10,6 @@
   "deepseek": [],
   "perplexity": [],
   "nvidia": [],
-  "meta": []
+  "meta": [],
+  "minimax": []
 }

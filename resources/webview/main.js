@@ -1667,8 +1667,9 @@ case 'insertText':
       const name = (modelName || '').toLowerCase();
       const combined = id + ' ' + name;
       const visionKeywords = [
-        'vision', '-vl', 'pixtral', 'gpt-4o', 'gpt-4-vision', 
-        'claude-3', 'gemini-1.5', 'gemini-2', 'llava', 'minicpm-v'
+        'vision', '-vl', 'pixtral', 'gpt-4o', 'gpt-4.1', 'gpt-4-vision', 'gpt-5',
+        'claude-3', 'claude-4', 'claude-sonnet-4', 'gemini-1.5', 'gemini-2', 'gemini-2.5',
+        'llava', 'minicpm-v', 'qwen-vl', 'qwen2-vl', 'qwen3-vl'
       ];
       return visionKeywords.some(kw => combined.includes(kw));
     }

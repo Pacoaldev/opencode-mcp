@@ -1,5 +1,7 @@
+import * as fs from 'fs';
 import type { Agent, PromptPart, ServerEvent, Session, SessionMessage } from './types';
 import { logHttpError, sanitizeUrl, truncate } from './logger';
+import { getAuthPath } from './settings';
 
 export interface HttpClientOptions {
     baseUrl: string;
@@ -98,64 +100,42 @@ export class HttpOpenCodeClient {
     async listModels(): Promise<{ id: string; name: string; modalities?: any; architecture?: any }[]> {
         try {
             const data = await this.request<any>('GET', '/provider');
-            const connected = data.connected || [];
-            const result: { id: string; name: string; modalities?: any; architecture?: any }[] = [];
-            for (const p of data.all || []) {
-                if (connected.includes(p.id)) {
-                    const modelsArray = p.models ? Object.values(p.models) : [];
-                    for (const m of modelsArray as any[]) {
-                        result.push({
-                            ...m,
-                            id: `${p.id}::${m.id}`,
-                            name: `${p.name} - ${m.name || m.id}`
-                        });
+            const connected = new Set<string>(data.connected || []);
+            const authProviders = new Set<string>();
+            try {
+                const authPath = getAuthPath();
+                if (fs.existsSync(authPath)) {
+                    const auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as Record<string, { key?: string }>;
+                    for (const [id, entry] of Object.entries(auth)) {
+                        if (entry?.key) {
+                            authProviders.add(id);
+                        }
                     }
                 }
+            } catch {
+                // ponytail: stale auth.json must not break the model list
             }
 
-            const fs = require('fs');
-            const os = require('os');
-            const path = require('path');
-            const authPath = process.env.OPENCODE_AUTH_PATH || path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json');
-            let hasReplicate = false;
-            let hasQwen = false;
-            let hasElevenlabs = false;
-            try {
-                if (fs.existsSync(authPath)) {
-                    const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
-                    hasReplicate = !!(auth['replicate'] && auth['replicate'].key);
-                    hasQwen = !!(auth['qwen'] && auth['qwen'].key);
-                    hasElevenlabs = !!(auth['elevenlabs'] && auth['elevenlabs'].key);
+            const result: { id: string; name: string; modalities?: any; architecture?: any }[] = [];
+            const seen = new Set<string>();
+            for (const p of data.all || []) {
+                if (!connected.has(p.id) && !authProviders.has(p.id)) {
+                    continue;
                 }
-            } catch (e) {}
-
-            if (hasReplicate) {
-                result.push({
-                    id: 'replicate::meta/meta-llama-3-70b-instruct',
-                    name: 'Replicate - Llama 3 70B Instruct',
-                    modalities: { input: ['text'], output: ['text'] }
-                });
+                const modelsArray = p.models ? Object.values(p.models) : [];
+                for (const m of modelsArray as any[]) {
+                    const id = `${p.id}::${m.id}`;
+                    if (seen.has(id)) {
+                        continue;
+                    }
+                    seen.add(id);
+                    result.push({
+                        ...m,
+                        id,
+                        name: `${p.name} - ${m.name || m.id}`,
+                    });
+                }
             }
-            if (hasQwen) {
-                result.push({
-                    id: 'qwen::qwen-2.5-72b-instruct',
-                    name: 'Qwen - Qwen 2.5 72B Instruct',
-                    modalities: { input: ['text'], output: ['text'] }
-                });
-                result.push({
-                    id: 'qwen::qwen-2.5-coder-32b-instruct',
-                    name: 'Qwen - Qwen 2.5 Coder 32B Instruct',
-                    modalities: { input: ['text'], output: ['text'] }
-                });
-            }
-            if (hasElevenlabs) {
-                result.push({
-                    id: 'elevenlabs::eleven-multilingual-v2',
-                    name: 'Elevenlabs - Eleven Multilingual v2',
-                    modalities: { input: ['text'], output: ['text'] }
-                });
-            }
-
             return result;
         } catch {
             return [];
