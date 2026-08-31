@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.43-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.44-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -115,6 +115,16 @@ Además, el flujo de envio ahora incluye:
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.44</strong> — Catálogo de modelos y documentación de proveedores</summary>
+
+- **Listado de modelos fiable**: el selector usa solo el catálogo vivo de OpenCode (`GET /provider`). Eliminados modelos hardcodeados obsoletos (p. ej. Llama 3 en Replicate, Qwen 2.5 fijo, ElevenLabs TTS).
+- **Heurísticas de visión**: palabras clave actualizadas (`claude-4`, `gpt-4.1`, `gpt-5`, `gemini-2.5`, `qwen-vl`, etc.) para el icono de imagen en el desplegable.
+- **Failover**: plantilla `config/apis.example.json` ampliada (`google`, `huggingface`, `nvidia`, `meta`, `minimax`, …). Los IDs deben coincidir con OpenCode (`minimax` = internacional).
+- **Documentación**: guía práctica en [`docs/providers-de-opencode-lista-completa-revisado.md`](docs/providers-de-opencode-lista-completa-revisado.md); catálogo completo de 176 nombres en [`docs/Proveedores.md`](docs/Proveedores.md).
+
+</details>
+
+<details>
 <summary><strong>v1.0.43</strong> — Seguridad integrada y recuperacion automatica</summary>
 
 - **Seguridad en envio**: validacion de payload antes de enviar prompts para bloquear contenido sensible por patrones configurables.
@@ -337,10 +347,24 @@ Configuración OpenCode del usuario: `~/.config/opencode/opencode.jsonc` (agents
 ## Failover de API keys
 
 1. Comando **`OpenCode: Configurar API Keys de Failover`** (`opencode.setApiKeys`).
-2. Pega JSON por proveedor, p. ej. `{"openai": ["sk-...", "sk-..."]}`.
-3. Se guarda cifrado en **SecretStorage** de VS Code.
+2. Pega JSON por proveedor. Plantilla de referencia: [`config/apis.example.json`](config/apis.example.json).
+3. Se guarda cifrado en **SecretStorage** de VS Code (el fichero local `config/apis.json` es solo borrador; no lo lee la extensión en runtime).
 
-Ante HTTP 429 o errores 5xx, la extensión rota la key y reintenta. El usuario ve mensaje de sistema, toast (primera vez) e indicador en la barra del modelo. Detalle en **Output → OpenCode Chat**.
+Ejemplo (IDs = slugs de OpenCode):
+
+```json
+{
+  "openai": ["sk-..."],
+  "anthropic": ["sk-ant-..."],
+  "minimax": ["..."],
+  "nvidia": ["nvapi-..."],
+  "huggingface": ["hf_..."]
+}
+```
+
+Ante HTTP 429 o errores 5xx, la extensión rota la key y reintenta; si no quedan keys en el proveedor actual, salta al siguiente con claves disponibles. El usuario ve mensaje de sistema, toast (primera vez) e indicador en la barra del modelo. Detalle en **Output → OpenCode Chat**.
+
+Guía de proveedores: [`docs/providers-de-opencode-lista-completa-revisado.md`](docs/providers-de-opencode-lista-completa-revisado.md).
 
 ---
 
@@ -428,6 +452,8 @@ src/
   gitProvider.ts        # Info Git
   settings.ts           # Configuración
 resources/webview/      # index.html, main.js (UI del chat)
+config/apis.example.json # Plantilla JSON de failover por proveedor
+docs/                   # Guías de proveedores OpenCode
 opencode-adapter.mjs    # Servidor MCP
 ```
 
@@ -442,6 +468,7 @@ opencode-adapter.mjs    # Servidor MCP
 | Sigo viendo modelos cloud con LM Studio | Activa `localModeEnabled` (pestaña User), instala VSIX ≥ 1.0.27, recarga |
 | Modo local pero error al enviar | Comprueba que LM Studio esté corriendo y que `localModeUrl` coincida |
 | La IA no ve imágenes | Modelo con visión cargado en LM Studio; miniatura visible en barra de contexto |
+| Modelos que no responden / EOL | El listado sale de OpenCode en vivo; reconecta el proveedor con `/connect` y elige un modelo del catálogo actual |
 | Cambios del repo no aparecen | Reinstala el `.vsix` compilado; Reload Window no lee el repo directamente |
 | Depurar envíos / failover | **View → Output → OpenCode Chat** |
 

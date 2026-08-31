@@ -6,6 +6,22 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.44] - 2026-08-31
+
+### Proveedores y catálogo de modelos
+- **httpClient.ts**:
+  - El listado de modelos usa únicamente el catálogo de OpenCode (`GET /provider`) para proveedores conectados o con API key en `auth.json`.
+  - Eliminada la inyección de modelos hardcodeados obsoletos (Replicate/Llama 3, Qwen 2.5 fijo, ElevenLabs TTS).
+- **main.js**:
+  - Heurísticas de visión ampliadas (`claude-4`, `gpt-4.1`, `gpt-5`, `gemini-2.5`, `qwen-vl`, etc.) para el icono de imagen en el selector.
+
+### Failover y documentación
+- **config/apis.example.json**:
+  - Plantilla alineada con IDs de OpenCode: `google`, `huggingface`, `nvidia`, `meta`, `minimax`, entre otros.
+- **docs/providers-de-opencode-lista-completa-revisado.md**:
+  - Reescrita como guía práctica (integración con la extensión, IDs, failover, LM Studio).
+  - Enlace al catálogo completo en `docs/Proveedores.md`.
+
 ## [1.0.43] - 2026-07-30
 
 ### Caché de contexto inteligente
