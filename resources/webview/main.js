@@ -73,6 +73,7 @@
     let selectedMode = 'auto'; // agent / auto
     let attachments = [];
     let costData = {};
+    let eurRate = null; // { rate, source, asOf }
     let generationInterval = null;
     let generationStartTime = null;
     let templateDropdown = document.getElementById('templateDropdown');
@@ -222,7 +223,23 @@
      node.appendChild(meta);
    }
 
-   function updateMonthlyTotal() {
+    function updateRateBadge(rate) {
+      eurRate = rate || null;
+      const badge = document.getElementById('costRateBadge');
+      if (!badge) return;
+      if (!eurRate || typeof eurRate.rate !== 'number') {
+        badge.textContent = '';
+        badge.title = '';
+        return;
+      }
+      const shown = `${eurRate.rate.toFixed(4)}`;
+      badge.textContent = `USD→EUR ${shown}`;
+      const srcLabel = eurRate.source === 'live' ? 'tipo en vivo' : 'tipo fijo';
+      const asOf = eurRate.asOf ? ` (${eurRate.asOf})` : '';
+      badge.title = `Conversión ${srcLabel}${asOf}. Los importes en USD son el coste real reportado por OpenCode.`;
+    }
+
+    function updateMonthlyTotal() {
         const totalDiv = document.getElementById('monthlyTotal');
         if (!totalDiv) return;
         // Aggregate by month (YYYY-MM)
@@ -1301,24 +1318,14 @@ if (gitContextBtn) {
     }
   });
 
-   function calculateCost(inputTokens, outputTokens, model) {
-     const modelPrices = {
-       'mistral-medium-latest': { input: 2.00, output: 6.00 },
-       'default': { input: 2.00, output: 6.00 }
-     };
-
-     const price = modelPrices[model] || modelPrices['default'];
-     const usd = (inputTokens * price.input + outputTokens * price.output) / 1000000;
-     const eur = usd * 0.92;
-
-     return { usd, eur };
-   }
-
-   window.addEventListener('message', (event) => {
+  window.addEventListener('message', (event) => {
     const msg = event.data;
     switch (msg.type) {
        case 'init':
           costData = msg.costData || {};
+          if (msg.eurRate) {
+            updateRateBadge(msg.eurRate);
+          }
           updateCostPanel();
           templates = msg.templates || [];
           renderTemplateDropdown();
@@ -1510,24 +1517,15 @@ if (gitContextBtn) {
            finishStream(msg.text, msg.metrics);
          }
          setStatus('idle');
-         if (msg.metrics) {
-           const today = new Date().toISOString().split('T')[0];
-           const model = selectedModel || 'default';
-           const cost = calculateCost(msg.metrics.input, msg.metrics.output, model);
-
-           if (!costData[today]) {
-             costData[today] = {};
-           }
-
-           if (!costData[today][model]) {
-             costData[today][model] = { usd: 0, eur: 0 };
-           }
-
-           costData[today][model].usd += cost.usd;
-           costData[today][model].eur += cost.eur;
-
-           updateCostPanel();
+         // El coste lo acumula el host (fuente de verdad) y llega por
+         // 'costDataUpdate'. El webview ya NO recalcula ni acumula nada.
+         break;
+      case 'costDataUpdate':
+         costData = msg.costData || {};
+         if (msg.eurRate) {
+           updateRateBadge(msg.eurRate);
          }
+         updateCostPanel();
          break;
       case 'system':
         appendMessage('system', msg.text);

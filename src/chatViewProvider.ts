@@ -15,6 +15,12 @@ import { PromptPart, Template } from './types';
 import { gitProvider } from './gitProvider';
 import { PromptManager } from './promptManager';
 import { MetricsCollector, type UsageMetrics } from './metricsCollector';
+import {
+    resolveCost,
+    refreshEurRate,
+    restoreEurRate,
+    getEurRate,
+} from './pricing';
 
 /**
  * Utility function to extract error message from unknown error type
@@ -51,6 +57,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this.promptManager = new PromptManager(context);
         this.metricsCollector = new MetricsCollector(context);
 
+        // Restaurar tipo de cambio persistido (si está vigente) y refrescarlo
+        // en segundo plano sin bloquear. Si falla, se usa el fijo de referencia.
+        const savedRate = context.globalState.get<{ rate: number; source: string; fetchedAt: number }>('eurRate');
+        if (savedRate) {
+            restoreEurRate(savedRate.rate, savedRate.source, savedRate.fetchedAt);
+        }
+        void refreshEurRate((rate, source, fetchedAt) => {
+            void context.globalState.update('eurRate', { rate, source, fetchedAt });
+            // Reenviar el tipo actualizado para que la UI refleje el valor vigente.
+            void this.refreshState();
+        });
+
         service.onStream((update) => {
             if (update.systemMessage) {
                 this.post({ type: 'system', text: update.systemMessage });
@@ -74,28 +92,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                     this.post({ type: 'error', message: update.error });
                 } else {
                      this.post({ type: 'assistantDone', text: update.text, metrics: update.metrics });
-                     
-                     // Actualizar costos en globalState
-                     if (update.metrics) {
-                         const today = new Date().toISOString().split('T')[0];
-                         const model = this.service.getSelectedModel() || 'default';
-                         
-                          let costData: Record<string, any> = this.context.globalState.get('costData') as Record<string, any> || {};
-                         
-                         const cost = this.calculateCost(update.metrics.input, update.metrics.output, model);
-                         
-                         if (!costData[today]) {
-                             costData[today] = {};
-                         }
-                         
-                         if (!costData[today][model]) {
-                             costData[today][model] = { usd: 0, eur: 0 };
-                         }
-                         
-                         costData[today][model].usd += cost.usd;
-                         costData[today][model].eur += cost.eur;
-                         
-                         this.context.globalState.update('costData', costData);
+
+                     // Acumular coste en globalState. Fuente de verdad: OpenCode.
+                     // `update.costUsd` es el coste REAL (USD) que OpenCode ya calcula
+                     // con precios/cache/descuentos del provider. Solo si no viene
+                     // (p. ej. LM Studio local) se estima como fallback.
+                     if (update.metrics || typeof update.costUsd === 'number') {
+                         void this.recordCost(update.metrics, update.costUsd);
                      }
                 }
                 this.post({ type: 'status', state: 'idle' });
@@ -142,17 +145,41 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         void this.refreshState();
      }
 
-      private calculateCost(inputTokens: number, outputTokens: number, model: string | undefined): { usd: number, eur: number } {
-          const modelPrices: Record<string, { input: number, output: number }> = {
-            'mistral-medium-latest': { input: 2.00, output: 6.00 },
-            'default': { input: 2.00, output: 6.00 }
-          };
+      /**
+       * Acumula el coste de un turno en globalState.
+       *
+       * Usa el coste REAL de OpenCode (`costUsd`, ya en USD con precios/cache/
+       * descuentos del provider). Solo cuando no viene (p. ej. LM Studio local,
+       * sin coste de API) estima con la tabla de respaldo.
+       *
+       * Tras persistir, reenvía el estado al webview para que solo lo pinte.
+       */
+      private async recordCost(
+          metrics: { input: number; output: number } | undefined,
+          costUsd: number | undefined
+      ): Promise<void> {
+          const today = new Date().toISOString().split('T')[0];
+          const model = this.service.getSelectedModel() || 'default';
 
-          const price = modelPrices[model ?? 'default'] || modelPrices['default'];
-          const usd = (inputTokens * price.input + outputTokens * price.output) / 1000000;
-          const eur = usd * 0.92;
+          const cost = resolveCost(costUsd, metrics?.input ?? 0, metrics?.output ?? 0, model);
 
-          return { usd, eur };
+          const costData: Record<string, Record<string, { usd: number; eur: number }>> =
+              (this.context.globalState.get('costData') as Record<string, Record<string, { usd: number; eur: number }>>) || {};
+
+          if (!costData[today]) {
+              costData[today] = {};
+          }
+          if (!costData[today][model]) {
+              costData[today][model] = { usd: 0, eur: 0 };
+          }
+
+          costData[today][model].usd += cost.usd;
+          costData[today][model].eur += cost.eur;
+
+          await this.context.globalState.update('costData', costData);
+
+          // El webview solo pinta: recibe el estado canónico del host.
+          this.post({ type: 'costDataUpdate', costData });
       }
 
       private async getFileCount(dir: string, visited = new Set<string>(), depth = 0): Promise<number> {
@@ -323,6 +350,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             messages: parsedMessages,
             quickActions: vscode.workspace.getConfiguration('opencode').get('quickActions') || [],
             costData,
+            eurRate: getEurRate(),
             templates: this.context.workspaceState.get<Template[]>('templates') || [],
             gitInfo,
             localMode,
@@ -1231,10 +1259,10 @@ if (successCount > 0) {
            }
        }
 
-        private async handleLoadCostDataMessage(): Promise<void> {
-           let costData: Record<string, any> = JSON.parse(JSON.stringify(this.context.globalState.get('costData') || {}));
-           this.post({ type: 'costDataUpdate', costData });
-       }
+         private async handleLoadCostDataMessage(): Promise<void> {
+            const costData: Record<string, any> = JSON.parse(JSON.stringify(this.context.globalState.get('costData') || {}));
+            this.post({ type: 'costDataUpdate', costData, eurRate: getEurRate() });
+        }
 
 private async handleCopyToClipboardMessage(message: any): Promise<void> {
             if (message.text) {

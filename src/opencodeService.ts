@@ -61,6 +61,12 @@ export interface StreamUpdate {
     done: boolean;
     error?: string;
     metrics?: { input: number; output: number };
+    /**
+     * Coste real en USD reportado por OpenCode (`assistant.info.cost`), ya calculado
+     * con los precios/cache/descuentos del provider. `undefined` cuando el proveedor
+     * no lo reporta (p. ej. LM Studio local, que no pasa por OpenCode).
+     */
+    costUsd?: number;
     statusDetail?: string;
     failover?: FailoverInfo;
     systemMessage?: string;
@@ -1471,6 +1477,7 @@ export class OpenCodeService implements vscode.Disposable {
                       text,
                       done: true,
                       metrics: lastAssistant?.info?.tokens,
+                      costUsd: lastAssistant?.info?.cost,
                       statusDetail: 'Listo.',
                   });
               }

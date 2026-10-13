@@ -94,7 +94,7 @@ Si `opencode.autoStartServer` está activo (por defecto), la extensión lanza `o
 | | |
 |---|---|
 | **Plantillas** | Guardar e insertar prompts (`/` en el chat o comandos de plantilla) |
-| **Costos** | Panel acumulativo por fecha y modelo (USD/EUR), persistido en VS Code |
+| **Costos** | Panel acumulativo por fecha y modelo (USD/EUR) con coste real de OpenCode y tipo de cambio en vivo, persistido en VS Code |
 | **Atajos** | Contexto con teclado; acciones rápidas en pantalla de bienvenida |
 | **Depuración** | Canal **Output → OpenCode Chat** con logs de envío, HTTP, SSE y failover |
 
@@ -502,7 +502,9 @@ Tras editar `opencode.json`, reinicia `opencode serve` o recarga el panel de la 
 
 ## Panel de costos
 
-Seguimiento acumulado por **fecha** y **modelo** (USD + EUR, tasa fija EUR = USD × 0.92). Persistido en almacenamiento global de VS Code. Toggle con el botón **`$`** en la barra superior.
+Seguimiento acumulado por **fecha** y **modelo** (USD + EUR). El importe en **USD es el coste real** reportado por OpenCode (`assistant.info.cost`), ya calculado con los precios, cache y descuentos del proveedor. La conversión a **EUR** usa un tipo de cambio en vivo (BCE vía `frankfurter.app`, sin API key) con caché de 24 h y respaldo fijo si no hay red; el panel muestra el tipo vigente. Persistido en almacenamiento global de VS Code. Toggle con el botón **`$`** en la barra superior.
+
+> Cuando el proveedor no reporta coste (p. ej. LM Studio en modo local, cuyo coste de API es 0), se muestra un valor estimado con la tabla de respaldo:
 
 | Modelo | Input / 1M tokens | Output / 1M tokens |
 |--------|-------------------|---------------------|

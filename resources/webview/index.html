@@ -59,6 +59,15 @@
 
     .cost-monthly { text-align: center; margin-bottom: 10px; font-weight: bold; color: var(--accent); }
 
+    .cost-rate {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      opacity: 0.8;
+      cursor: help;
+    }
+
     .cost-content {
       display: flex;
       flex-direction: column;
@@ -1663,6 +1672,7 @@
       </button>
     </div>
     <div id="monthlyTotal" class="cost-monthly" style="margin-top:8px; font-weight:bold; color:var(--accent);"></div>
+    <div id="costRateBadge" class="cost-rate" title="Tipo de cambio usado para convertir USD a EUR"></div>
     <div id="costContent" class="cost-content">
       <!-- Aquí se mostrarán los costos -->
     </div>

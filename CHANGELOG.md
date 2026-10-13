@@ -6,6 +6,19 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.55] - 2026-10-13
+
+### Costes reales de AI y conversión a EUR
+- **Coste real de OpenCode**: el panel de *Costos Acumulativos* usa ahora el coste **real** en USD reportado por OpenCode (`assistant.info.cost`), calculado por el servidor con los precios, cache y descuentos del proveedor. Antes se descartaba y se sustituía por una tabla de precios hardcodeada (un único modelo real; el resto caía a un valor por defecto ficticio).
+- **`src/pricing.ts`** (nuevo módulo): centraliza la resolución de coste final y la conversión de divisa.
+  - `resolveCost()` prioriza el coste real; solo estima con la tabla de respaldo cuando el proveedor no lo reporta (p. ej. LM Studio local, cuyo coste de API es 0).
+  - Tipo de cambio **USD→EUR en vivo** (BCE vía `frankfurter.app`, sin API key), con caché de 24 h, persistido en `globalState` y **fallback fijo** si no hay red. El panel muestra el tipo vigente y su origen (*tipo en vivo* / *tipo fijo*).
+- **`src/opencodeService.ts`**: se propaga `assistant.info.cost` a través de `StreamUpdate.costUsd` hasta el webview.
+- **`src/chatViewProvider.ts`**: eliminado el cálculo duplicado `calculateCost()`; nuevo `recordCost()` que acumula en `globalState` y reenvía el estado al webview (`costDataUpdate`).
+- **`resources/webview/main.js`**: el webview ya **no recalcula ni acumula** coste; solo pinta el estado canónico del host. Eliminada la segunda copia de `calculateCost()`. Esto corrige una doble acumulación que desincronizaba los totales.
+- **`resources/webview/index.html`**: nuevo indicador `#costRateBadge` con el tipo de cambio activo.
+- **Tests**: añadido `test/pricing.test.js` (conversión, fallback y prioridad del coste real).
+
 ## [1.0.54] - 2026-09-30
 
 ### Documentación y empaquetado
