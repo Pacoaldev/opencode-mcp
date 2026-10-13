@@ -24,8 +24,10 @@ test/**
 .engram/**
 comandos.md
 PROVIDERS.md
+Proveedores.md
 REGLAS.md
 ROADMAP.md
+plan_ruta_api_balancer.md
 # Private provider docs (kept out of the published package)
 docs/**
 
