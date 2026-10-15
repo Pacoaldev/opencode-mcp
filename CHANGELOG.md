@@ -6,6 +6,22 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Released]
 
+## [1.0.56] - 2026-10-15
+
+### Publicación y paquete
+- **CHANGELOG.md**: incorporados los cambios del release 1.0.55 que se publicaban en el VSIX pero no estaban documentados (ver sub-secciones a continuación).
+- Versión sincronizada en `package.json` y `package-lock.json` para corregir el desfase del badge de Open VSX frente a la versión realmente publicada (1.0.55).
+
+### Logo del Marketplace — peso reducido
+- **resources/logo.png**: reducido de **1079 KB a 102 KB** (re-encoded a 256x256). El Marketplace rechaza paquetes con logos que superen 1 MB o que no cumplan las dimensiones/peso recomendados; con esto se supera el límite y el icono se publica correctamente en VS Code Marketplace y Open VSX.
+
+### `.vscodeignore` — blindado
+- Excluidos del VSIX los artefactos y notas privadas que aún podían colarse en el paquete publicado tras el cierre de 1.0.54:
+  - `Proveedores.md`, `plan_ruta_api_balancer.md` (notas privadas del mantenedor).
+  - Patrón `.bypasser*` (logs y estado de la herramienta de bypass local).
+  - `*.tmp`, `.tmp-*`, `*.log` y `*.vsix` (artefactos temporales que ya estaban listados informalmente; ahora Blindados explícitamente).
+- Verificado que el `.vsix` resultante sigue sin contener `docs/`, `test/`, `.engram/`, `.env*`, ni rutas personales.
+
 ## [1.0.55] - 2026-10-13
 
 ### Costes reales de AI y conversión a EUR

@@ -6,7 +6,7 @@
 
 **Panel lateral de chat para VS Code, Antigravity y Cursor** conectado a tu **OpenCode** local o a **LM Studio**.
 
-[![Versión](https://img.shields.io/badge/versión-1.0.54-blue)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versión-1.0.56-blue)](CHANGELOG.md)
 [![VS Code](https://img.shields.io/badge/VS%20Code-≥1.85-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
 
@@ -115,6 +115,16 @@ Además, el flujo de envio ahora incluye:
 ## Novedades recientes
 
 <details open>
+<summary><strong>v1.0.56</strong> — Publicación coherente y logo correcto en Marketplace</summary>
+
+- **Logo reducido** (1079 KB a 102 KB) para superar el filtro de tamaño del Marketplace y que el icono se muestre correctamente en VS Code y Open VSX.
+- **`.vscodeignore` blindado**: excluidos `Proveedores.md`, `plan_ruta_api_balancer.md`, `.bypasser*`, `*.tmp`, `.log`, `.vsix` y `.tmp-*` para garantizar que el VSIX publicado no arrastra notas privadas ni artefactos temporales.
+- **Versión sincronizada** en `package.json`, `package-lock.json` y badge para corregir el desfase que se veía en Open VSX (badge mostraba 1.0.54 mientras el VSIX real era 1.0.55).
+- **CHANGELOG completo**: añadidos los cambios del release 1.0.55 que estaban pendientes de documentar (logo, blindaje del paquete).
+
+</details>
+
+<details>
 <summary><strong>v1.0.54</strong> — Documentación sincronizada y paquete limpio</summary>
 
 - **CHANGELOG completo**: restaurado el historial (46 versiones) con las entradas perdidas 1.0.31–1.0.34 y la 1.0.20 reparada.
@@ -304,7 +314,7 @@ npm run package
 Luego:
 
 - **VS Code / Cursor:** `Ctrl+Shift+P` → **Extensions: Install from VSIX...**
-- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.54.vsix --force`
+- **Cursor (CLI):** `cursor --install-extension opencode-mcp-vscode-1.0.56.vsix --force`
 
 > **Importante:** *Reload Window* carga la extensión **instalada**, no el código fuente del repo. Tras instalar un VSIX nuevo, recarga la ventana una vez.
 
@@ -620,7 +630,7 @@ test/                    # Pruebas (node:test)
 | Sigo viendo modelos cloud con LM Studio | Activa `localModeEnabled` (pestaña User), instala VSIX ≥ 1.0.27, recarga |
 | Modo local pero error al enviar | Comprueba que LM Studio esté corriendo y que `localModeUrl` coincida |
 | La IA no ve imágenes | Modelo con visión cargado en LM Studio; miniatura visible en barra de contexto |
-| Modelos que no responden / EOL (`410 Gone`) | No es un fallo de la extensión: OpenCode sigue listando modelos retirados en `/provider`. Usa otro modelo (tabla en [Modelos retirados](#modelos-retirados-eol-410-gone)), `blacklist` en `opencode.json`, o instala VSIX ≥ 1.0.54 para filtro, watchdog de errores y auto-cambio en el panel |
+| Modelos que no responden / EOL (`410 Gone`) | No es un fallo de la extensión: OpenCode sigue listando modelos retirados en `/provider`. Usa otro modelo (tabla en [Modelos retirados](#modelos-retirados-eol-410-gone)), `blacklist` en `opencode.json`, o instala VSIX ≥ 1.0.56 para filtro, watchdog de errores y auto-cambio en el panel |
 | Cambios del repo no aparecen | Reinstala el `.vsix` compilado; Reload Window no lee el repo directamente |
 | Depurar envíos / failover | **View → Output → OpenCode Chat** |
 
